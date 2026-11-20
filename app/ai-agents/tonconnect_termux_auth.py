@@ -1,6 +1,8 @@
 import os, http.server, urllib.parse, urllib.request, json, subprocess
 
-H = chr(104) + "ttps:" + "//"
+H = "https://"
+# Füge hier deinen Toncenter API-Key ein, um den 403-Fehler zu beheben:
+API_KEY = os.environ.get("TONCENTER_API_KEY", "") 
 API = "/api/v3/accountStates?address="
 
 def save_and_verify(addr):
@@ -14,16 +16,20 @@ def save_and_verify(addr):
             open(p, "w", encoding="utf-8").writelines(lines)
     try:
         url = H + "toncenter.com" + API + urllib.parse.quote(addr) + "&include_boc=false"
-        req = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": "TGRAM-CLI/1.0"})
+        headers = {"Accept": "application/json", "User-Agent": "TGRAM-CLI/1.0"}
+        if API_KEY:
+            headers["X-API-Key"] = API_KEY
+        req = urllib.request.Request(url, headers=headers)
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode())
             acc = data.get("accounts", [{}])[0]
             bal = int(acc.get("balance", 0)) / 1e9
             print("\n=== TONCENTER API v3 OWNER VERIFIZIERT ===")
-            print("Status  :", acc.get("status", "active"))
-            print("Guthaben:", f"{bal:.4f} TON")
+            print("Status   :", acc.get("status", "active"))
+            print("Guthaben :", f"{bal:.4f} TON")
     except Exception as e:
-        print("\n[OK] Adresse gespeichert (RPC-Info:", e, ")")
+        print("\n[WARNUNG] API 403/Fehler:", e)
+        print("[OK] Adresse trotzdem lokal in .env gespeichert.")
 
 class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
@@ -37,7 +43,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             try:
                 save_and_verify(addr)
             finally:
-                print("[SICHERHEIT] Lokaler Login-Listener sofort beendet.")
+                print("\n[SICHERHEIT] Lokaler Login-Listener sofort beendet.")
                 os._exit(0)
     def log_message(self, *args):
         pass
@@ -45,4 +51,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 if __name__ == "__main__":
     u = H + "rfof-network.github.io" + "/TGRAM/"
     subprocess.run(["termux-open-url", u])
-    http.server.HTTPServer(("127.0.0.1", 8765), Handler).serve_forever()
+    try:
+        http.server.HTTPServer(("127.0.0.1", 8765), Handler).serve_forever()
+    except OSError as e:
+        print(f"[FEHLER] Port 8765 belegt. Bitte alten Prozess beenden: {e}")
