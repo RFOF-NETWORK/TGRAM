@@ -1,0 +1,10 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/dk_vm_config_unpacked.test.tolk (1 test)
+  ✓ dk stdlib vm config unpacked after root dict mutation [TIME]
+
+ ✓ 1 passed in 1 file

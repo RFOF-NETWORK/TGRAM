@@ -1,0 +1,10 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/outlist_to_be_empty.test.tolk (1 test)
+  ✓ cc outlist to be empty pass [TIME]
+
+ ✓ 1 passed in 1 file

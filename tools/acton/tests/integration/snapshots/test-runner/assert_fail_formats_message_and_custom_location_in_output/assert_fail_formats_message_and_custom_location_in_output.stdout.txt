@@ -1,0 +1,14 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/assert_fail_formatting.test.tolk (1 test)
+  ✗ bv assert fail custom location [TIME]
+    └─ Error: bv explicit fail message
+      └─ at tests/custom_assert_fail_output.test[LINE]
+
+ ✗ 1 failed in 1 file
+
+Some tests failed.

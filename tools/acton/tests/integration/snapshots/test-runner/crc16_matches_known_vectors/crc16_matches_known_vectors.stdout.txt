@@ -1,0 +1,10 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/ei_crc16_vectors.test.tolk (1 test)
+  ✓ ei stdlib crc16 known vectors [TIME]
+
+ ✓ 1 passed in 1 file

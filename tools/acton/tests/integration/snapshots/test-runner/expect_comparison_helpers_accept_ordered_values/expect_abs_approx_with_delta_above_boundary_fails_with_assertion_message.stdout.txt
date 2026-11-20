@@ -1,0 +1,10 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/expect_behavior.test.tolk (1 test)
+  ✓ ad stdlib abs approx above boundary [TIME]
+
+ ✓ 1 passed in 1 file

@@ -1,0 +1,10 @@
+{
+  "block_time_ms": 75,
+  "empty_block": {
+    "incomplete": false,
+    "req_count": 40,
+    "transaction_count": 0,
+    "type": "blocks.transactionsExt"
+  },
+  "target_seqno_reached": true
+}

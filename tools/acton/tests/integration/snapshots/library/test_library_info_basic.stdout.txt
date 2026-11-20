@@ -1,0 +1,10 @@
+Library:     my-lib
+[DEPLOYED_AT]
+[LAST_TOPUP_AT]
+Contract:    MyLib
+Network:     testnet
+Hash:        0xb993c68c596425f05d1bc492d7c03e2979ab669901ed5a57e35e6dd4d6089d27
+Account:     EQD...
+Funded for:  1 year ([TIME])
+Code:        [BOC_HEX]...
+Size:        1024 bits, 4 cells

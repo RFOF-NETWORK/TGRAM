@@ -1,0 +1,19 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/cq_register_address_rebind.test.tolk (1 test)
+  ✓ cq register address duplicate symbolic name [TIME]
+    └─ Test output:
+       N/A -> cq_register_sender A
+       └── empty 0.2 GRAM -> cq_duplicate_name B                                       compute phase skipped aborted
+       
+       N/A -> cq_register_sender A
+       └── empty 0.3 GRAM -> cq_duplicate_name B                                       compute phase skipped aborted
+       
+       N/A -> cq_register_sender A
+       └── empty 0.4 GRAM -> cq_duplicate_name B                                       compute phase skipped aborted
+
+ ✓ 1 passed in 1 file

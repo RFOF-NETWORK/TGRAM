@@ -1,0 +1,15 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/assert_bin.test.tolk (1 test)
+  ✗ ac assert not equal failure branch [TIME]
+    └─ Error: numbers should differ
+       Values are equal but expected to be different:
+         7
+
+ ✗ 1 failed in 1 file
+
+Some tests failed.

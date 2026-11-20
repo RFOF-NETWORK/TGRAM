@@ -1,0 +1,10 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/fmt_behavior.test.tolk (1 test)
+  ✓ eb stdlib format1 utf8 literal placeholder [TIME]
+
+ ✓ 1 passed in 1 file

@@ -1,0 +1,10 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/bj_get_account_state_transition.test.tolk (1 test)
+  ✓ bj stdlib get account state after top up [TIME]
+
+ ✓ 1 passed in 1 file

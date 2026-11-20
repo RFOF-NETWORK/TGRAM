@@ -1,0 +1,8 @@
+Error: error: undefined symbol `nonexistent_symbol`
+    --> [ROOT]/contracts/broken[LINE]
+     |  in function onInternalMessage
+     | 
+   3 |                 val x = nonexistent_symbol();
+     |                         ^^^^^^^^^^^^^^^^^^
+
+Fix compilation error first to verify contract

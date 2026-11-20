@@ -1,0 +1,10 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/either_behavior.test.tolk (1 test)
+  ✓ ab stdlib either match routes variants [TIME]
+
+ ✓ 1 passed in 1 file

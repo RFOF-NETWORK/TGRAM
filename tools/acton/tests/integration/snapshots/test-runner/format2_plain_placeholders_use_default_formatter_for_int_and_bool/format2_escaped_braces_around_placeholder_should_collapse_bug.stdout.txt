@@ -1,0 +1,10 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/fmt_behavior.test.tolk (1 test)
+  ✓ bs stdlib format2 escaped braces bug [TIME]
+
+ ✓ 1 passed in 1 file

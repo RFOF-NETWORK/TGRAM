@@ -1,0 +1,12 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/load_library_unknown_hash.test.tolk (1 test)
+  ✓ bm load library unknown hash project builder [TIME]
+    └─ Test output:
+       bm-load-library-null-project-builder
+
+ ✓ 1 passed in 1 file

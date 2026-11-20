@@ -1,0 +1,17 @@
+Error: Failed to prepare project for mutation testing: Error: In dependency:
+
+error: expected `;`, got `IS`
+    --> [ROOT]/contracts/dependency[LINE]
+     | 
+   3 |     THIS IS A SYNTAX ERROR
+     |          ^^
+
+In main:
+
+error: Failed to import: [NOT_FOUND]
+    --> [ROOT]/contracts/main[LINE]
+     | 
+   2 | import "../gen/dependency.code.tolk"
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Build failed with 2 errors

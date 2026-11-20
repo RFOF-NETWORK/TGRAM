@@ -1,0 +1,10 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/ext_message_behavior.test.tolk (1 test)
+  ✓ ch stdlib ext message load body left [TIME]
+
+ ✓ 1 passed in 1 file

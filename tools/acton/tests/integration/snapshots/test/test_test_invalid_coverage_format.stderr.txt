@@ -1,0 +1,4 @@
+error: invalid value 'invalid-format' for '--coverage-format <COVERAGE_FORMAT>'
+  [possible values: lcov, text]
+
+For more information, try '--help'.

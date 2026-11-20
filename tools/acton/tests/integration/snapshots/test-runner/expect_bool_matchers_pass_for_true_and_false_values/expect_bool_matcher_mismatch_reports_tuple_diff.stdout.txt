@@ -1,0 +1,25 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/expect_bool.test.tolk (2 tests)
+  ✗ by expect bool fail to be true [TIME]
+    └─ Error: expect(actual).toBeTrue()
+        (
+            false,
+            true
+        )
+      └─ at tests/expect_bool.test[LINE]
+  ✗ by expect bool fail to be false [TIME]
+    └─ Error: expect(actual).toBeFalse()
+        (
+            true,
+            false
+        )
+      └─ at tests/expect_bool.test[LINE]
+
+ ✗ 2 failed in 1 file
+
+Some tests failed.

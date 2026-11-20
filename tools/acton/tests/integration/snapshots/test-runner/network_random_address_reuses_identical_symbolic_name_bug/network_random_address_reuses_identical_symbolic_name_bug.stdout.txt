@@ -1,0 +1,10 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/bo_random_address_reuse.test.tolk (1 test)
+  ✓ bo stdlib network random address reuse [TIME]
+
+ ✓ 1 passed in 1 file

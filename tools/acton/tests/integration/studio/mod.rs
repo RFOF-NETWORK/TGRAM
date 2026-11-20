@@ -1,0 +1,228 @@
+use std::net::TcpListener;
+use std::process::{Child, Command, Output};
+use std::thread;
+use std::time::{Duration, Instant};
+
+use crate::support::project::Project;
+use acton_studio::StudioInfo;
+
+mod reporting;
+mod snapshots;
+mod start;
+mod test_runs;
+mod wallets;
+
+const STUDIO_START_TIMEOUT: Duration = Duration::from_secs(30);
+const STUDIO_STOP_TIMEOUT: Duration = Duration::from_secs(5);
+const STUDIO_START_ATTEMPTS: usize = 5;
+
+struct StudioCliProcess {
+    child: Option<Child>,
+    url: String,
+}
+
+impl StudioCliProcess {
+    fn start(project: &Project) -> Self {
+        Self::start_with_env(project, &[])
+    }
+
+    fn start_with_env(project: &Project, environment: &[(&str, String)]) -> Self {
+        for attempt in 0..STUDIO_START_ATTEMPTS {
+            let (listener, port) = reserve_studio_port();
+            drop(listener);
+
+            let port_arg = port.to_string();
+            let url = format!("http://127.0.0.1:{port}");
+            let mut command = project.acton().current_dir(project.path()).args([
+                "studio",
+                "--port",
+                &port_arg,
+                "--no-open",
+            ]);
+            for (name, value) in environment {
+                command = command.env(name, value);
+            }
+
+            // Model a real terminal: Ctrl+C targets Studio's foreground process
+            // group, including managed children that fail to isolate themselves.
+            #[cfg(unix)]
+            let child = command
+                .spawn_in_new_process_group()
+                .expect("Studio CLI process must start");
+            #[cfg(not(unix))]
+            let child = command.spawn().expect("Studio CLI process must start");
+            let mut studio = Self {
+                child: Some(child),
+                url,
+            };
+
+            match studio.try_wait_for_info() {
+                Ok(_) => return studio,
+                Err(output)
+                    if attempt + 1 < STUDIO_START_ATTEMPTS
+                        && String::from_utf8_lossy(&output.stderr)
+                            .contains("Address already in use") =>
+                {
+                    // Another parallel test can claim the released ephemeral
+                    // port before Studio binds it. Retry only that exact race.
+                }
+                Err(output) => panic!(
+                    "Studio CLI exited before becoming ready\nstdout:\n{}\nstderr:\n{}",
+                    String::from_utf8_lossy(&output.stdout),
+                    String::from_utf8_lossy(&output.stderr)
+                ),
+            }
+        }
+
+        unreachable!("Studio startup attempts always return or panic")
+    }
+
+    fn id(&self) -> u32 {
+        self.child
+            .as_ref()
+            .expect("Studio CLI process must be available")
+            .id()
+    }
+
+    fn url(&self) -> &str {
+        &self.url
+    }
+
+    fn wait_for_info(&mut self) -> StudioInfo {
+        match self.try_wait_for_info() {
+            Ok(info) => info,
+            Err(output) => panic!(
+                "Studio CLI exited before becoming ready\nstdout:\n{}\nstderr:\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            ),
+        }
+    }
+
+    fn try_wait_for_info(&mut self) -> Result<StudioInfo, Output> {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(Duration::from_millis(250))
+            .build()
+            .expect("Studio HTTP client must build");
+        let deadline = Instant::now() + STUDIO_START_TIMEOUT;
+
+        loop {
+            if let Ok(response) = client.get(format!("{}/api/v1/info", self.url)).send()
+                && response.status().is_success()
+            {
+                return Ok(response
+                    .json()
+                    .expect("Studio info response must contain valid JSON"));
+            }
+
+            if self
+                .child
+                .as_mut()
+                .expect("Studio CLI process must be available")
+                .try_wait()
+                .expect("Studio CLI process status must be readable")
+                .is_some()
+            {
+                return Err(self
+                    .child
+                    .take()
+                    .expect("Studio CLI process must be available")
+                    .wait_with_output()
+                    .expect("Studio CLI output must be readable"));
+            }
+
+            if Instant::now() >= deadline {
+                let mut child = self
+                    .child
+                    .take()
+                    .expect("Studio CLI process must be available");
+                child.kill().expect("Unready Studio CLI process must stop");
+                let output = child
+                    .wait_with_output()
+                    .expect("Studio CLI output must be readable");
+                panic!(
+                    "Studio CLI did not become ready at {}\nstdout:\n{}\nstderr:\n{}",
+                    self.url,
+                    String::from_utf8_lossy(&output.stdout),
+                    String::from_utf8_lossy(&output.stderr),
+                );
+            }
+
+            thread::sleep(Duration::from_millis(50));
+        }
+    }
+
+    #[cfg(unix)]
+    fn stop(mut self) {
+        let child = self
+            .child
+            .as_mut()
+            .expect("Studio CLI process must be available");
+        let status = Command::new("kill")
+            .arg("-INT")
+            .arg("--")
+            .arg(format!("-{}", child.id()))
+            .status()
+            .expect("SIGINT must be sent to Studio process group");
+        assert!(status.success(), "kill -INT failed with status {status}");
+
+        let deadline = Instant::now() + STUDIO_STOP_TIMEOUT;
+        while child
+            .try_wait()
+            .expect("Studio CLI process status must be readable")
+            .is_none()
+        {
+            assert!(
+                Instant::now() < deadline,
+                "Studio CLI did not stop after SIGINT"
+            );
+            thread::sleep(Duration::from_millis(50));
+        }
+
+        let output = self
+            .child
+            .take()
+            .expect("Studio CLI process must be available")
+            .wait_with_output()
+            .expect("Studio CLI output must be readable");
+
+        assert!(output.status.success());
+
+        // The progress timer can tick before an otherwise immediate shutdown
+        // completes under load. Keep all other stderr in the snapshot; slow
+        // shutdown progress is covered by the localnet command tests.
+        let stderr = String::from_utf8_lossy(&output.stderr)
+            .split_inclusive('\n')
+            .filter(|line| line.trim() != "Finishing Studio connections and test processes")
+            .collect::<String>();
+        crate::common::assert_ui().eq(
+            stderr,
+            snapbox::file!["../../snapshots/studio/graceful_shutdown.stderr.txt"],
+        );
+
+        let child_shutdown_messages = String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .filter(|line| line.contains("Acton simulator gracefully"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        expect_test::expect![""].assert_eq(&child_shutdown_messages);
+    }
+}
+
+impl Drop for StudioCliProcess {
+    fn drop(&mut self) {
+        if let Some(child) = self.child.as_mut() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
+}
+
+fn reserve_studio_port() -> (TcpListener, u16) {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("Studio test port must be reserved");
+    let port = listener
+        .local_addr()
+        .expect("Reserved Studio TCP port has no address")
+        .port();
+    (listener, port)
+}

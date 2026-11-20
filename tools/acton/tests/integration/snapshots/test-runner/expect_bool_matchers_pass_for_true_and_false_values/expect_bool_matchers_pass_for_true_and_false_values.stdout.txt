@@ -1,0 +1,11 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/expect_bool.test.tolk (2 tests)
+  ✓ by expect bool pass true [TIME]
+  ✓ by expect bool pass false [TIME]
+
+ ✓ 2 passed in 1 file

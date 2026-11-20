@@ -1,0 +1,23 @@
+Build one contract or every contract
+
+Usage: acton[EXE] build [OPTIONS] [CONTRACT_NAME]
+
+Arguments:
+  [CONTRACT_NAME]  Contract name to build (defaults to all if not specified)
+
+Options:
+      --clear-cache           Clear compilation cache before building
+      --color <WHEN>          Control when to use colored output [default: auto] [possible values: auto, always, never]
+      --graph <GRAPH>         Generate dependency graph as DOT file
+      --manifest-path <PATH>  Path to Acton.toml
+      --out-dir <DIR>         Output directory for build artifacts (default: build/)
+      --project-root <PATH>   Path to project root
+      --gen-dir <DIR>         Output directory for generated dependency files (default: gen/)
+      --output-abi <DIR>      Directory to save contract ABI JSON files (default: build/abi/)
+      --output-boc <DIR>      Directory to save contract BoC files
+      --output-fift <DIR>     Directory to save compiled Fift files
+      --output-sources <DIR>  Directory to save source registration artifacts
+      --info                  Show compiled contract info
+  -h, --help                  Print help
+
+Run 'acton help build' for more detailed information.

@@ -1,0 +1,17 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/stdlib_io.test.tolk (1 test)
+  ✓ at stdlib stderr first separation [TIME]
+    └─ Test output:
+       stdout-1-after-first-stderr
+       stdout-2-after-middle-stderr
+    └─ Test stderr:
+       stderr-1-first
+       stderr-2-middle
+       stderr-3-last
+
+ ✓ 1 passed in 1 file

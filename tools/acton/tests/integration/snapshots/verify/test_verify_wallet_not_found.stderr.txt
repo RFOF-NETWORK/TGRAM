@@ -1,0 +1,1 @@
+Error: MnemonicWordsCount: expected 24 words, got 11

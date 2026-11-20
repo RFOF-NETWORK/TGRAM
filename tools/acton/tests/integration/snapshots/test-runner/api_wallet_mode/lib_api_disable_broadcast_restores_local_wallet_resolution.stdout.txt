@@ -1,0 +1,10 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/wallet_mode.test.tolk (1 test)
+  ✓ s-lib-api-disable-broadcast-restores-[LOCAL_WALLET_ADDRESS]
+
+ ✓ 1 passed in 1 file

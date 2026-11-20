@@ -1,0 +1,10 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/prompt_wrappers.test.tolk (1 test)
+  ✓ prompt select confirm fallbacks [TIME]
+
+ ✓ 1 passed in 1 file

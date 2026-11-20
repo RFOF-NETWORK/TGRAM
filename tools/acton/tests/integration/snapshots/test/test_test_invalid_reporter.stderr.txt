@@ -1,0 +1,4 @@
+error: invalid value 'invalid-reporter' for '--reporter <REPORTER>'
+  [possible values: console, teamcity, junit, dot]
+
+For more information, try '--help'.

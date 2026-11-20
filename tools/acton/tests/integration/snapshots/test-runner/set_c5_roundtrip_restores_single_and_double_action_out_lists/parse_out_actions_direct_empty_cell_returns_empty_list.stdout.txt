@@ -1,0 +1,10 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/c5_roundtrip.test.tolk (1 test)
+  ✓ cn parse out actions direct empty cell [TIME]
+
+ ✓ 1 passed in 1 file

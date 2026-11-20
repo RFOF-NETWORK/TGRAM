@@ -1,0 +1,10 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/bb_config_global_version.test.tolk (1 test)
+  ✓ bb stdlib config global version raw typed consistency [TIME]
+
+ ✓ 1 passed in 1 file

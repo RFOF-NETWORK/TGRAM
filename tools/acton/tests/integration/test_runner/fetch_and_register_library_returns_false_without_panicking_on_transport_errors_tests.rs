@@ -1,0 +1,95 @@
+use crate::support::TestOutputExt;
+use crate::support::fixtures::FixtureProject;
+use crate::support::project::ProjectBuilder;
+use crate::support::toncenter::{
+    spawn_toncenter_v2_mock, toncenter_v2_latest_fork_snapshot_responses,
+};
+use std::fs;
+
+const MISSING_LIBRARY_HASH: &str =
+    "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+const KNOWN_LIBRARY_HASH: &str = "b993c68c596425f05d1bc492d7c03e2979ab669901ed5a57e35e6dd4d6089d27";
+
+#[test]
+fn fetch_and_register_library_returns_false_without_panicking_on_transport_errors() {
+    let (mock_url, mock_handle) =
+        spawn_toncenter_v2_mock(toncenter_v2_latest_fork_snapshot_responses(123_456));
+    let project = ProjectBuilder::new("bl-stdlib-fetch-register-library-false")
+        .test_file(
+            "fetch_register_library_false",
+            &format!(
+                r#"
+import "../../lib/emulation/network"
+import "../../lib/emulation/testing"
+import "../../lib/testing/expect"
+
+get fun `test bl stdlib fetch register library false`() {{
+    expect(testing.loadAndRegisterLibrary("{MISSING_LIBRARY_HASH}")).toBeFalse();
+    expect(testing.loadAndRegisterLibrary("not-a-hash")).toBeFalse();
+    expect(testing.loadAndRegisterLibrary("")).toBeFalse();
+
+    expect(net.loadLibrary("{MISSING_LIBRARY_HASH}")).toBeNull();
+    expect(net.loadLibrary("not-a-hash")).toBeNull();
+    expect(net.loadLibrary("")).toBeNull();
+}}
+"#
+            ),
+        )
+        .build();
+
+    let acton_toml_path = project.path().join("Acton.toml");
+    let base_config =
+        fs::read_to_string(&acton_toml_path).expect("failed to read Acton.toml for BL test");
+    let patched_config = format!(
+        r#"{base_config}
+
+[networks.bl-unreachable]
+api = {{ v2 = "{mock_url}/api/v2" }}
+"#
+    );
+    fs::write(&acton_toml_path, patched_config).expect("failed to patch Acton.toml for BL test");
+
+    project
+        .acton()
+        .test()
+        .fork_net("custom:bl-unreachable")
+        .run()
+        .success()
+        .assert_passed(1);
+
+    mock_handle.join().expect("mock toncenter must finish");
+}
+
+#[test]
+#[ignore = "Blocked in this sandbox: outbound DNS is disabled and local TCP bind is not permitted"]
+fn fetch_and_register_library_returns_true_for_known_hash_in_fixture_project() {
+    let fixture = FixtureProject::load("basic");
+    let test_path = "tests/fetch_register_library_true.test.tolk";
+
+    fs::write(
+        fixture.path().join(test_path),
+        format!(
+            r#"
+import "../../lib/emulation/network"
+import "../../lib/emulation/testing"
+import "../../lib/testing/expect"
+
+get fun `test bl stdlib fetch register library true`() {{
+    expect(testing.loadAndRegisterLibrary("{KNOWN_LIBRARY_HASH}")).toBeTrue();
+    expect(net.loadLibrary("{KNOWN_LIBRARY_HASH}")).toBeNotNull();
+}}
+"#
+        ),
+    )
+    .expect("failed to write BL fixture test file");
+
+    fixture
+        .acton()
+        .test()
+        .path(test_path)
+        .arg("--fork-net")
+        .arg("testnet")
+        .run()
+        .success()
+        .assert_passed(1);
+}

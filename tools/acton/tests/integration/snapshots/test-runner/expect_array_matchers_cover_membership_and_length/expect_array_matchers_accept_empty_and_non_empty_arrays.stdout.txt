@@ -1,0 +1,11 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/expect_array.test.tolk (2 tests)
+  ✓ stdlib array matchers non empty [TIME]
+  ✓ stdlib array matchers empty [TIME]
+
+ ✓ 2 passed in 1 file

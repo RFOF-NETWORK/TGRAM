@@ -1,0 +1,16 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/stdlib_io.test.tolk (1 test)
+  ✓ eprintln stderr path [TIME]
+    └─ Test output:
+       stdout-before
+       stdout-after
+    └─ Test stderr:
+       stderr-line-1
+       stderr-line-2
+
+ ✓ 1 passed in 1 file

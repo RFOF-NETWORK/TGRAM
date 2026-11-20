@@ -1,0 +1,10 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/change_library_decode.test.tolk (1 test)
+  ✓ cz change library mode preserved remove [TIME]
+
+ ✓ 1 passed in 1 file

@@ -1,0 +1,10 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/ed_map_value_matchers.test.tolk (1 test)
+  ✓ ed stdlib map value matchers typed any address success [TIME]
+
+ ✓ 1 passed in 1 file

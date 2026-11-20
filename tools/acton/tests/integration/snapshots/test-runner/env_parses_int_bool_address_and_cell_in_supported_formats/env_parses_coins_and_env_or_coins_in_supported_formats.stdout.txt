@@ -1,0 +1,10 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/env_coins_supported.test.tolk (1 test)
+  ✓ z stdlib env coins supported formats [TIME]
+
+ ✓ 1 passed in 1 file

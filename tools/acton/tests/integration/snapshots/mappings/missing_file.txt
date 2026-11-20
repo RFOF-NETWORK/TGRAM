@@ -1,0 +1,6 @@
+Error: error: Failed to import: [NOT_FOUND]
+    --> [ROOT]/contracts/main[LINE]
+     | 
+   2 |             import "@core/math"
+     |                    ^^^^^^^^^^^^
+

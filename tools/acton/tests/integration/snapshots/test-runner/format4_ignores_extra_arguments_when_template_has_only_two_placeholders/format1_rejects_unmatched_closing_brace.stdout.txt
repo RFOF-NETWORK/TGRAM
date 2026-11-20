@@ -1,0 +1,13 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/fmt_behavior.test.tolk (1 test)
+  ✗ eb stdlib format1 unmatched closing brace [TIME]
+    └─ Error: Invalid format string at byte 6: unmatched '}'
+
+ ✗ 1 failed in 1 file
+
+Some tests failed.

@@ -1,0 +1,4 @@
+Error: Contracts SHAREDNAME and SharedName have conflicting wrapper name SharedName
+
+Set distinct contract IDs in Acton.toml
+Wrapper names must differ after PascalCase conversion, ignoring case

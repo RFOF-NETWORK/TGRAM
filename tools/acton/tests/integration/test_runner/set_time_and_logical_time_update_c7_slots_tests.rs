@@ -1,0 +1,418 @@
+use crate::support::TestOutputExt;
+use crate::support::project::ProjectBuilder;
+
+const SIMPLE_CONTRACT: &str = r"
+fun onInternalMessage(_: InMessage) {}
+fun onBouncedMessage(_: InMessageBounced) {}
+";
+
+const VM_IMPORTS: &str = r#"
+import "../../lib/build"
+import "../../lib/emulation/config"
+import "../../lib/emulation/network"
+import "../../lib/emulation/testing"
+import "../../lib/fmt"
+import "../../lib/impl"
+import "../../lib/testing/expect"
+"#;
+
+fn run_success_case(project_name: &str, test_body: &str, snapshot_path: &str) {
+    let test_source = format!("{VM_IMPORTS}\n{test_body}\n");
+
+    ProjectBuilder::new(project_name)
+        .contract("simple", SIMPLE_CONTRACT)
+        .test_file("aj_vm_helpers", &test_source)
+        .build()
+        .acton()
+        .test()
+        .run()
+        .success()
+        .assert_passed(1)
+        .assert_snapshot_matches(snapshot_path);
+}
+
+fn run_failure_case(
+    project_name: &str,
+    test_body: &str,
+    expected_message: &str,
+    snapshot_path: &str,
+) {
+    let test_source = format!("{VM_IMPORTS}\n{test_body}\n");
+
+    ProjectBuilder::new(project_name)
+        .contract("simple", SIMPLE_CONTRACT)
+        .test_file("aj_vm_helpers", &test_source)
+        .build()
+        .acton()
+        .test()
+        .run()
+        .failure()
+        .assert_failed(1)
+        .assert_contains(expected_message)
+        .assert_snapshot_matches(snapshot_path);
+}
+
+#[test]
+fn set_time_and_logical_time_update_c7_slots() {
+    run_success_case(
+        "aj-stdlib-vm-set-time-and-logical-slots-3-4-5",
+        r"
+get fun `test aj stdlib vm set time and logical slots 3 4 5`() {
+    testing.setNow(1700001234);
+    impl.setConfigParam(123456789, 4);
+    impl.setConfigParam(223456789, 5);
+
+    val c7 = testing.getC7OutsideContract();
+    val params = c7.get(0) as tuple;
+
+    expect(params.get(3) as int).toEqual(1700001234);
+    expect(params.get(4) as int).toEqual(123456789);
+    expect(params.get(5) as int).toEqual(223456789);
+    expect(blockchain.now()).toEqual(1700001234);
+}
+",
+        "integration/snapshots/test-runner/set_time_and_logical_time_update_c7_slots/set_time_and_logical_time_update_c7_slots.stdout.txt",
+    );
+}
+
+#[test]
+fn initial_world_state_time_matches_vm_time_for_new_accounts() {
+    run_success_case(
+        "aj-stdlib-vm-initial-world-state-time",
+        r#"
+get fun `test initial world state time matches vm time for new accounts`() {
+    val initialNow = testing.getNow();
+
+    expect(initialNow > 0).toBeTrue();
+    expect(initialNow).toEqual(blockchain.now());
+
+    val account = testing.treasury("initial-time-account");
+    val accountState = testing.getAccountState(account.address)!;
+    expect(accountState.storageStat.lastPaid).toEqual(initialNow);
+}
+"#,
+        "integration/snapshots/test-runner/set_time_and_logical_time_update_c7_slots/initial_world_state_time_matches_vm_time_for_new_accounts.stdout.txt",
+    );
+}
+
+#[test]
+fn set_original_balance_updates_balance_tuple_with_and_without_extra_dict() {
+    run_success_case(
+        "aj-stdlib-vm-set-original-balance-slot-7",
+        r#"
+get fun `test aj stdlib vm set original balance slot 7`() {
+    impl.setConfigParam(tuple [ton("3"), null], 7);
+    var c7 = testing.getC7OutsideContract();
+    var params = c7.get(0) as tuple;
+    val withoutExtra = params.get(7) as tuple;
+    expect(withoutExtra.get(0) as int).toEqual(ton("3"));
+    expect(withoutExtra.get(1) as dict?).toBeNull();
+
+    val extraCurrencies = testing.getConfig().toLowLevelDict();
+    impl.setConfigParam(tuple [ton("5"), extraCurrencies], 7);
+    c7 = testing.getC7OutsideContract();
+    params = c7.get(0) as tuple;
+    val withExtra = params.get(7) as tuple;
+    expect(withExtra.get(0) as int).toEqual(ton("5"));
+    expect(withExtra.get(1) as dict?).toBeNotNull();
+}
+"#,
+        "integration/snapshots/test-runner/set_time_and_logical_time_update_c7_slots/set_original_balance_updates_balance_tuple_with_and_without_extra_dict.stdout.txt",
+    );
+}
+
+#[test]
+fn set_config_root_dict_replaces_c7_root_config_slot() {
+    run_success_case(
+        "aj-stdlib-vm-set-config-root-slot-9",
+        r"
+get fun `test aj stdlib vm set config root slot 9`() {
+    var config = testing.getConfig();
+    var version = config.getGlobalVersion();
+    version.version += 1;
+    config.setGlobalVersion(version);
+
+    val root = config.toLowLevelDict();
+    impl.setConfigParam(root, 9);
+
+    val c7 = testing.getC7OutsideContract();
+    val params = c7.get(0) as tuple;
+    val c7Root = params.get(9) as BlockchainConfigMap;
+    val c7Version = c7Root.getGlobalVersion();
+
+    expect(c7Version.version).toEqual(version.version);
+    expect(c7Version.capabilities).toEqual(version.capabilities);
+}
+",
+        "integration/snapshots/test-runner/set_time_and_logical_time_update_c7_slots/set_config_root_dict_replaces_c7_root_config_slot.stdout.txt",
+    );
+}
+
+#[test]
+fn set_and_get_config_unpacked_round_trip_slot_14() {
+    run_success_case(
+        "aj-stdlib-vm-config-unpacked-slot-14",
+        r#"
+get fun `test aj stdlib vm config unpacked slot 14`() {
+    var unpacked = [];
+    unpacked.push(777);
+    unpacked.push("aj-unpacked");
+    unpacked.push(false);
+
+    impl.setConfigParam(unpacked, 14);
+    val actual = (testing.getC7OutsideContract().get(0) as tuple).get(14) as tuple;
+
+    expect(actual.size()).toEqual(3);
+    expect(actual.get(0) as int).toEqual(777);
+    expect(actual.get(1) as string).toEqual("aj-unpacked");
+    expect(actual.get(2) as bool).toEqual(false);
+}
+"#,
+        "integration/snapshots/test-runner/set_time_and_logical_time_update_c7_slots/set_and_get_config_unpacked_round_trip_slot_14.stdout.txt",
+    );
+}
+
+#[test]
+fn register_library_accepts_code_and_empty_cells() {
+    run_success_case(
+        "aj-stdlib-vm-register-library",
+        r#"
+get fun `test aj stdlib vm register library`() {
+    val codeCell = build("simple");
+
+    testing.registerLibrary(codeCell);
+    testing.registerLibrary(createEmptyCell());
+
+    expect(true).toBeTrue();
+}
+"#,
+        "integration/snapshots/test-runner/set_time_and_logical_time_update_c7_slots/register_library_accepts_code_and_empty_cells.stdout.txt",
+    );
+}
+
+#[test]
+fn convert_address_supports_raw_and_user_friendly_forms() {
+    run_success_case(
+        "aj-stdlib-vm-convert-address-valid",
+        r#"
+get fun `test aj stdlib vm convert address valid`() {
+    val raw = "0:0000000000000000000000000000000000000000000000000000000000000000";
+    val friendly = "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c";
+
+    val fromRaw = parseAddress(raw);
+    val fromFriendly = parseAddress(friendly);
+
+    val renderedRaw = format("{}", fromRaw);
+    val renderedFriendly = format("{}", fromFriendly);
+
+    expect(renderedRaw).toEqual(renderedFriendly);
+    expect(renderedRaw).toEqual("kQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHTW");
+}
+"#,
+        "integration/snapshots/test-runner/set_time_and_logical_time_update_c7_slots/convert_address_supports_raw_and_user_friendly_forms.stdout.txt",
+    );
+}
+
+#[test]
+fn convert_address_trims_surrounding_whitespace() {
+    run_success_case(
+        "aj-stdlib-vm-convert-address-trims-whitespace",
+        r#"
+get fun `test aj stdlib vm convert address trims whitespace`() {
+    val raw = "  0:0000000000000000000000000000000000000000000000000000000000000000  ";
+    val friendly = "  EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c  ";
+
+    val fromRaw = parseAddress(raw);
+    val fromFriendly = parseAddress(friendly);
+
+    val renderedRaw = format("{}", fromRaw);
+    val renderedFriendly = format("{}", fromFriendly);
+
+    expect(renderedRaw).toEqual(renderedFriendly);
+    expect(renderedRaw).toEqual("kQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHTW");
+}
+"#,
+        "integration/snapshots/test-runner/set_time_and_logical_time_update_c7_slots/convert_address_trims_surrounding_whitespace.stdout.txt",
+    );
+}
+
+#[test]
+fn convert_address_ignores_symbolic_name_suffix() {
+    run_success_case(
+        "aj-stdlib-vm-convert-address-symbolic-suffix",
+        r#"
+get fun `test aj stdlib vm convert address symbolic suffix`() {
+    val raw = "0:0000000000000000000000000000000000000000000000000000000000000000 (deployer)";
+    val friendly = "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c (deployer)";
+
+    val fromRaw = parseAddress(raw);
+    val fromFriendly = parseAddress(friendly);
+
+    val renderedRaw = format("{}", fromRaw);
+    val renderedFriendly = format("{}", fromFriendly);
+
+    expect(renderedRaw).toEqual(renderedFriendly);
+    expect(renderedRaw).toEqual("kQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHTW");
+}
+"#,
+        "integration/snapshots/test-runner/set_time_and_logical_time_update_c7_slots/convert_address_ignores_symbolic_name_suffix.stdout.txt",
+    );
+}
+
+#[test]
+fn convert_address_accepts_formatted_named_address() {
+    run_success_case(
+        "aj-stdlib-vm-convert-address-formatted-named-address",
+        r#"
+get fun `test aj stdlib vm convert address formatted named address`() {
+    val deployer = testing.treasury("deployer");
+    val rendered = format("{}", deployer.address);
+    val parsed = parseAddress(rendered);
+
+    expect(parsed).toEqual(deployer.address);
+}
+"#,
+        "integration/snapshots/test-runner/set_time_and_logical_time_update_c7_slots/convert_address_accepts_formatted_named_address.stdout.txt",
+    );
+}
+
+#[test]
+fn convert_address_reports_invalid_input() {
+    run_failure_case(
+        "aj-stdlib-vm-convert-address-invalid",
+        r#"
+get fun `test aj stdlib vm convert address invalid`() {
+    val _ = parseAddress("not-an-address");
+}
+"#,
+        "invalid address format",
+        "integration/snapshots/test-runner/set_time_and_logical_time_update_c7_slots/convert_address_reports_invalid_input.stdout.txt",
+    );
+}
+
+#[test]
+fn convert_address_reports_invalid_raw_input() {
+    run_failure_case(
+        "aj-stdlib-vm-convert-address-invalid-raw",
+        r#"
+get fun `test aj stdlib vm convert address invalid raw`() {
+    val _ = parseAddress("0:xyz");
+}
+"#,
+        "invalid address format",
+        "integration/snapshots/test-runner/set_time_and_logical_time_update_c7_slots/convert_address_reports_invalid_raw_input.stdout.txt",
+    );
+}
+
+#[test]
+fn convert_address_reports_invalid_user_friendly_input() {
+    run_failure_case(
+        "aj-stdlib-vm-convert-address-invalid-user-friendly",
+        r#"
+get fun `test aj stdlib vm convert address invalid user friendly`() {
+    val _ = parseAddress("EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9d");
+}
+"#,
+        "invalid address format",
+        "integration/snapshots/test-runner/set_time_and_logical_time_update_c7_slots/convert_address_reports_invalid_user_friendly_input.stdout.txt",
+    );
+}
+
+#[test]
+fn get_config_param_generic_is_not_usable_bug() {
+    run_success_case(
+        "aj-stdlib-vm-get-config-param-generic-bug",
+        r"
+get fun `test aj stdlib vm get config param generic bug`() {
+    testing.setNow(1700001000);
+    val now = (testing.getC7OutsideContract().get(0) as tuple).get(3) as int;
+    expect(now).toEqual(1700001000);
+}
+",
+        "integration/snapshots/test-runner/set_time_and_logical_time_update_c7_slots/get_config_param_generic_is_not_usable_bug.stdout.txt",
+    );
+}
+
+#[test]
+fn cell_from_hex_decodes_valid_boc_hex() {
+    run_success_case(
+        "aj-stdlib-vm-cell-from-hex-valid",
+        r#"
+get fun `test aj stdlib vm cell from hex valid`() {
+    val decoded = parseCellFromHex("b5ee9c72010101010002000000");
+    expect(decoded).toEqual(createEmptyCell());
+}
+"#,
+        "integration/snapshots/test-runner/set_time_and_logical_time_update_c7_slots/cell_from_hex_decodes_valid_boc_hex.stdout.txt",
+    );
+}
+
+#[test]
+fn cell_from_hex_trims_surrounding_whitespace() {
+    run_success_case(
+        "aj-stdlib-vm-cell-from-hex-trims-whitespace",
+        r#"
+get fun `test aj stdlib vm cell from hex trims whitespace`() {
+    val decoded = parseCellFromHex("  b5ee9c72010101010002000000  ");
+    expect(decoded).toEqual(createEmptyCell());
+}
+"#,
+        "integration/snapshots/test-runner/set_time_and_logical_time_update_c7_slots/cell_from_hex_trims_surrounding_whitespace.stdout.txt",
+    );
+}
+
+#[test]
+fn cell_from_hex_reports_invalid_hex() {
+    run_failure_case(
+        "aj-stdlib-vm-cell-from-hex-invalid",
+        r#"
+get fun `test aj stdlib vm cell from hex invalid`() {
+    val _ = parseCellFromHex("deadbeef");
+}
+"#,
+        "Failed to decode cell hex deadbeef",
+        "integration/snapshots/test-runner/set_time_and_logical_time_update_c7_slots/cell_from_hex_reports_invalid_hex.stdout.txt",
+    );
+}
+
+#[test]
+fn cell_from_base64_decodes_valid_boc_base64() {
+    run_success_case(
+        "aj-stdlib-vm-cell-from-base64-valid",
+        r#"
+get fun `test aj stdlib vm cell from base64 valid`() {
+    val decoded = parseCellFromBase64("te6ccgEBAQEAAgAAAA==");
+    expect(decoded).toEqual(createEmptyCell());
+}
+"#,
+        "integration/snapshots/test-runner/set_time_and_logical_time_update_c7_slots/cell_from_base64_decodes_valid_boc_base64.stdout.txt",
+    );
+}
+
+#[test]
+fn cell_from_base64_trims_surrounding_whitespace() {
+    run_success_case(
+        "aj-stdlib-vm-cell-from-base64-trims-whitespace",
+        r#"
+get fun `test aj stdlib vm cell from base64 trims whitespace`() {
+    val decoded = parseCellFromBase64("  te6ccgEBAQEAAgAAAA==  ");
+    expect(decoded).toEqual(createEmptyCell());
+}
+"#,
+        "integration/snapshots/test-runner/set_time_and_logical_time_update_c7_slots/cell_from_base64_trims_surrounding_whitespace.stdout.txt",
+    );
+}
+
+#[test]
+fn cell_from_base64_reports_invalid_base64() {
+    run_failure_case(
+        "aj-stdlib-vm-cell-from-base64-invalid",
+        r#"
+get fun `test aj stdlib vm cell from base64 invalid`() {
+    val _ = parseCellFromBase64("not-base64");
+}
+"#,
+        "Failed to decode cell base64 not-base64",
+        "integration/snapshots/test-runner/set_time_and_logical_time_update_c7_slots/cell_from_base64_reports_invalid_base64.stdout.txt",
+    );
+}

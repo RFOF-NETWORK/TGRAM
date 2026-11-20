@@ -1,0 +1,8 @@
+  Discovered 2 contracts
+             Contract1 (contract1)
+             Contract2 (contract2)
+     Created Acton.toml with project configuration
+  Installing standard library [ACTON_VERSION]
+     Patched .gitignore with Acton patterns
+
+✓ Initialized new Acton project

@@ -1,0 +1,10 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/broadcast_toggle.test.tolk (1 test)
+  ✓ bn enable broadcast toggle [TIME]
+
+ ✓ 1 passed in 1 file

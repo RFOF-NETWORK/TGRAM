@@ -1,0 +1,27 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+   Compiling fm_fanout_left
+    Finished in [TIME]
+   Compiling fm_fanout_right
+    Finished in [TIME]
+   Compiling fm_fanout_root
+    Finished in [TIME]
+    Finished in [TIME]
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/formatter_fanout.test.tolk (1 test)
+  ✓ formatter fanout chain println [TIME]
+    └─ Test output:
+       N/A -> sender A
+       └── FmFanKick 0.5 GRAM -> fm_fanout_root B                                      gas=3108
+           │   queryId: 202
+           │   left: [WALLET_ADDRESS_BASE] (fm_fanout_left C)
+           │   right: [WALLET_ADDRESS_BASE] (fm_fanout_right D)
+           ├── FmLeftNotice 0.099933333 GRAM -> fm_fanout_left C                       gas=333
+           │   queryId: 202
+           └── FmRightNotice 0.1 GRAM -> fm_fanout_right D                             gas=437
+               queryId: 202
+
+ ✓ 1 passed in 1 file

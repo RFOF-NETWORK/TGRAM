@@ -1,0 +1,10 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/crypto_sign_behavior.test.tolk (1 test)
+  ✓ dz stdlib sign deterministic same key cell [TIME]
+
+ ✓ 1 passed in 1 file

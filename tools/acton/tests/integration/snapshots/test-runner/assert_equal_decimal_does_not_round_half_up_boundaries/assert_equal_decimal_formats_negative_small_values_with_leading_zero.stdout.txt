@@ -1,0 +1,15 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/assert_equal_decimal_signed.test.tolk (1 test)
+  ✗ eg assert equal decimal negative leading zero [TIME]
+    └─ Error: expect(actual).toEqualDecimal(expected)
+        Actual:   -0.05
+        Expected: -0.06
+
+ ✗ 1 failed in 1 file
+
+Some tests failed.

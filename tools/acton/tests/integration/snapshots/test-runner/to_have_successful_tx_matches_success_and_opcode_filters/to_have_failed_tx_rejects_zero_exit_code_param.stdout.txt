@@ -1,0 +1,17 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+   Compiling harness
+    Finished in [TIME]
+    Finished in [TIME]
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/tx_expect.test.tolk (1 test)
+  ✗ failed tx rejects zero exitCode [TIME]
+    └─ Error: expect(actual).toHaveFailedTx(params) requires a non-zero exitCode or a predicate
+      └─ at tests/tx_expect.test[LINE]
+
+ ✗ 1 failed in 1 file
+
+Some tests failed.

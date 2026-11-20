@@ -1,0 +1,10 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/dw_crypto_mnemonic.test.tolk (1 test)
+  ✓ dw stdlib create mnemonic returns 24 non empty words [TIME]
+
+ ✓ 1 passed in 1 file

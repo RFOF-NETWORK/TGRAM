@@ -1,0 +1,13 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/approx.test.tolk (4 tests)
+  ✓ approx abs pass [TIME]
+  ✓ approx abs boundary pass [TIME]
+  ✓ approx rel pass [TIME]
+  ✓ approx rel boundary pass [TIME]
+
+ ✓ 4 passed in 1 file

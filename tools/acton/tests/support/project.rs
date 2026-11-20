@@ -1,0 +1,2135 @@
+use crate::common::{acton_exe, acton_path_env, assert_ui};
+use crate::support::assertions::TestOutput;
+use crate::support::tempdir::create_tmp_dir;
+use acton_config::color::ColorMode;
+use std::collections::BTreeMap;
+use std::ffi::OsStr;
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use tempfile::TempDir;
+use toncenter_keys::{
+    TONCENTER_MAINNET_API_KEY_ENV, TONCENTER_TESTNET_API_KEY_ENV, custom_env_var_name,
+};
+
+pub(crate) struct ProjectBuilder {
+    name: String,
+    temp_dir: TempDir,
+    contracts: Vec<ContractDef>,
+    tests: Vec<(String, String)>,
+    files: Vec<(String, String)>,
+    raw_files: Vec<(String, String)>,
+    scripts: Vec<(String, String)>,
+    mappings: Vec<(String, String)>,
+    lint_levels: BTreeMap<String, String>,
+    lint_excludes: Vec<String>,
+    lint_max_warnings: Option<usize>,
+    lint_output_format: Option<String>,
+    test_config: Option<TestConfig>,
+    wrappers_tolk_output_dir: Option<String>,
+    wrappers_tolk_generate_test: Option<bool>,
+    wrappers_tolk_test_output_dir: Option<String>,
+    wrappers_typescript_output_dir: Option<String>,
+    license: Option<String>,
+    create_acton_toml: bool,
+}
+
+struct ContractDef {
+    name: String,
+    code: ContractSource,
+    types: Option<String>,
+    depends: Vec<DependencyDef>,
+    output: Option<String>,
+    dir: Option<String>,
+}
+
+enum ContractSource {
+    Tolk(String), // Tolk source code
+    Boc(Vec<u8>), // Raw BoC bytes
+}
+
+#[derive(Clone)]
+struct DependencyDef {
+    name: String,
+    kind: Option<String>,     // "embed_code" or "library_ref"
+    function: Option<String>, // custom function name
+    path: Option<String>,     // custom output path
+}
+
+#[derive(Clone, Default)]
+pub(crate) struct TestConfig {
+    pub filter: Option<String>,
+    pub exclude_patterns: Option<Vec<String>>,
+    pub include_patterns: Option<Vec<String>>,
+    pub reporters: Option<Vec<String>>,
+    pub debug: Option<bool>,
+    pub debug_port: Option<u16>,
+    pub backtrace: Option<String>,
+    pub coverage: Option<bool>,
+    pub coverage_format: Option<String>,
+    pub coverage_file: Option<String>,
+    pub coverage_minimum_percent: Option<f64>,
+    pub coverage_include_wrappers: Option<bool>,
+    pub coverage_include_tests: Option<bool>,
+    pub gas_profile: Option<String>,
+    pub gas_profile_format: Option<String>,
+    pub gas_profile_include_tests: Option<bool>,
+    pub junit_path: Option<String>,
+    pub junit_merge: Option<bool>,
+    pub fuzz_runs: Option<usize>,
+    pub fuzz_max_test_rejects: Option<usize>,
+    pub fuzz_seed: Option<u64>,
+    pub fail_on_diff: Option<bool>,
+    pub fail_fast: Option<bool>,
+    pub studio_reporting: Option<bool>,
+}
+
+#[allow(dead_code)]
+#[cfg(unix)]
+fn is_json_like_snapshot_file(path: &Path) -> bool {
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| matches!(ext, "json" | "sarif" | "cpuprofile"))
+}
+
+#[allow(dead_code)]
+#[cfg(unix)]
+fn preserves_json_field_order(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| matches!(name, "package.json" | "package-lock.json"))
+}
+
+#[allow(dead_code)]
+#[derive(Debug)]
+pub(crate) struct ProcessCommandBuilder {
+    cmd: std::process::Command,
+    stdin: Option<snapbox::Data>,
+}
+
+#[allow(dead_code)]
+impl ProcessCommandBuilder {
+    pub(crate) fn new(program: impl AsRef<OsStr>) -> Self {
+        Self {
+            cmd: std::process::Command::new(program),
+            stdin: None,
+        }
+    }
+
+    fn arg(mut self, arg: impl AsRef<OsStr>) -> Self {
+        self.cmd.arg(arg);
+        self
+    }
+
+    pub(crate) fn env(mut self, key: impl AsRef<OsStr>, value: impl AsRef<OsStr>) -> Self {
+        self.cmd.env(key, value);
+        self
+    }
+
+    fn env_remove(mut self, key: impl AsRef<OsStr>) -> Self {
+        self.cmd.env_remove(key);
+        self
+    }
+
+    fn current_dir(mut self, dir: impl AsRef<Path>) -> Self {
+        self.cmd.current_dir(dir);
+        self
+    }
+
+    fn has_arg_exact_or_prefixed(&self, exact: &str, prefix: &str) -> bool {
+        self.cmd.get_args().any(|arg| {
+            let arg = arg.to_string_lossy();
+            arg == exact || arg.starts_with(prefix)
+        })
+    }
+
+    pub(crate) fn stdin(mut self, stream: impl snapbox::IntoData) -> Self {
+        self.stdin = Some(stream.into_data());
+        self
+    }
+
+    fn into_std(self) -> std::process::Command {
+        self.cmd
+    }
+
+    fn into_snapbox(self, config: snapbox::Assert) -> snapbox::cmd::Command {
+        let mut cmd = snapbox::cmd::Command::from_std(self.cmd).with_assert(config);
+        if let Some(stdin) = self.stdin {
+            cmd = cmd.stdin(stdin);
+        }
+        cmd
+    }
+}
+
+#[cfg(unix)]
+#[allow(dead_code)]
+pub(crate) struct PtySession {
+    inner: expectrl::session::OsSession,
+    project_path: PathBuf,
+}
+
+#[cfg(unix)]
+#[allow(dead_code)]
+pub(crate) trait NeedleLabel {
+    fn needle_label(&self) -> String;
+}
+
+#[cfg(unix)]
+impl<Re: AsRef<str>> NeedleLabel for expectrl::Regex<Re> {
+    fn needle_label(&self) -> String {
+        format!("regex `{}`", self.0.as_ref())
+    }
+}
+
+#[cfg(unix)]
+impl NeedleLabel for expectrl::Eof {
+    fn needle_label(&self) -> String {
+        "EOF".to_owned()
+    }
+}
+
+#[cfg(unix)]
+impl NeedleLabel for expectrl::NBytes {
+    fn needle_label(&self) -> String {
+        format!("{} bytes", self.0)
+    }
+}
+
+#[cfg(unix)]
+impl NeedleLabel for &str {
+    fn needle_label(&self) -> String {
+        format!("string `{self}`")
+    }
+}
+
+#[cfg(unix)]
+impl NeedleLabel for String {
+    fn needle_label(&self) -> String {
+        format!("string `{self}`")
+    }
+}
+
+#[cfg(unix)]
+impl NeedleLabel for &[u8] {
+    fn needle_label(&self) -> String {
+        format!("byte pattern ({} bytes)", self.len())
+    }
+}
+
+#[cfg(unix)]
+#[allow(dead_code)]
+impl PtySession {
+    fn new(inner: expectrl::session::OsSession, project_path: PathBuf) -> Self {
+        Self {
+            inner,
+            project_path,
+        }
+    }
+
+    /// Set expect timeout and return the session for chaining.
+    pub(crate) fn set_expect_timeout(
+        mut self,
+        expect_timeout: Option<std::time::Duration>,
+    ) -> Self {
+        self.inner.set_expect_timeout(expect_timeout);
+        self
+    }
+
+    /// Expect a pattern and panic with a generic message on failure.
+    pub(crate) fn expect<N>(&mut self, needle: N) -> &mut Self
+    where
+        N: expectrl::Needle + NeedleLabel,
+    {
+        let message = format!("Expected PTY output to match {}", needle.needle_label());
+        expectrl::Expect::expect(&mut self.inner, needle).expect(&message);
+        self
+    }
+
+    /// Assert that a pattern does not appear before timeout or EOF.
+    pub(crate) fn expect_no_match<N>(&mut self, needle: N) -> &mut Self
+    where
+        N: expectrl::Needle + NeedleLabel,
+    {
+        let label = needle.needle_label();
+        match expectrl::Expect::expect(&mut self.inner, needle) {
+            Err(expectrl::Error::ExpectTimeout | expectrl::Error::Eof) => self,
+            Ok(_) => panic!("Expected PTY output to not match {label}"),
+            Err(err) => panic!("Expected PTY output to not match {label}, got error: {err}"),
+        }
+    }
+
+    /// Expect a pattern and panic with a custom message on failure.
+    #[allow(dead_code)]
+    #[allow(non_snake_case)]
+    pub(crate) fn expect_or_err<N>(&mut self, needle: N, message: &str) -> &mut Self
+    where
+        N: expectrl::Needle,
+    {
+        expectrl::Expect::expect(&mut self.inner, needle).expect(message);
+        self
+    }
+
+    pub(crate) fn send<B>(&mut self, buf: B) -> Result<(), expectrl::Error>
+    where
+        B: AsRef<[u8]>,
+    {
+        expectrl::Expect::send(&mut self.inner, buf)
+    }
+
+    /// Send a line and panic with a custom message on failure.
+    pub(crate) fn send_line(&mut self, line: impl AsRef<str>, message: &str) -> &mut Self {
+        expectrl::Expect::send_line(&mut self.inner, line.as_ref()).expect(message);
+        self
+    }
+
+    pub(crate) fn assert_file_snapshot_matches(
+        &mut self,
+        file_path: &str,
+        snapshot_path: &str,
+    ) -> &mut Self {
+        let full_file_path = self.project_path.join(file_path);
+        assert!(
+            full_file_path.exists(),
+            "File '{}' doesn't exist",
+            full_file_path.display()
+        );
+
+        let file_content = fs::read_to_string(&full_file_path).unwrap_or_else(|e| {
+            panic!("Failed to read file '{}': {}", full_file_path.display(), e)
+        });
+
+        let normalized = if is_json_like_snapshot_file(&full_file_path)
+            && !preserves_json_field_order(&full_file_path)
+        {
+            crate::support::snapshots::normalize_output_preserve_escapes(
+                &file_content,
+                &self.project_path,
+            )
+        } else {
+            crate::support::snapshots::normalize_output(&file_content, &self.project_path)
+        };
+
+        let assertion = if is_json_like_snapshot_file(&full_file_path)
+            && !preserves_json_field_order(&full_file_path)
+        {
+            crate::common::assertion().normalize_paths(false)
+        } else {
+            crate::common::assertion()
+        };
+
+        let mut snapshot_full_path = std::env::current_dir().expect("Failed to get current dir");
+        snapshot_full_path.push("tests");
+        snapshot_full_path.push(snapshot_path);
+
+        let expected = snapbox::Data::read_from(&snapshot_full_path, None);
+        assertion.eq(normalized, expected);
+        self
+    }
+}
+
+#[cfg(unix)]
+impl std::ops::Deref for PtySession {
+    type Target = expectrl::session::OsSession;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+#[cfg(unix)]
+impl std::ops::DerefMut for PtySession {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
+}
+
+#[allow(dead_code)]
+impl ProjectBuilder {
+    pub(crate) fn new(name: &str) -> Self {
+        let temp_dir = create_tmp_dir();
+        Self {
+            name: name.to_string(),
+            temp_dir,
+            contracts: Vec::new(),
+            tests: Vec::new(),
+            files: Vec::new(),
+            raw_files: Vec::new(),
+            scripts: Vec::new(),
+            mappings: Vec::new(),
+            lint_levels: BTreeMap::new(),
+            lint_excludes: Vec::new(),
+            lint_max_warnings: None,
+            lint_output_format: None,
+            test_config: None,
+            wrappers_tolk_output_dir: None,
+            wrappers_tolk_generate_test: None,
+            wrappers_tolk_test_output_dir: None,
+            wrappers_typescript_output_dir: None,
+            license: Some("MIT".to_string()),
+            create_acton_toml: true,
+        }
+    }
+
+    /// Don't create Acton.toml (useful for testing init command)
+    pub(crate) fn without_acton_toml(mut self) -> Self {
+        self.create_acton_toml = false;
+        self
+    }
+
+    /// Set project license (for gen file headers)
+    ///
+    /// # Examples
+    /// ```
+    /// .with_license(Some("Apache-2.0"))  // Set custom license
+    /// .with_license(None)                 // No license header
+    /// ```
+    pub(crate) fn with_license(mut self, license: Option<&str>) -> Self {
+        self.license = license.map(ToString::to_string);
+        self
+    }
+
+    pub(crate) fn script_config(mut self, name: &str, command: &str) -> Self {
+        self.scripts.push((name.to_string(), command.to_string()));
+        self
+    }
+
+    pub(crate) fn mapping(mut self, prefix: &str, target: &str) -> Self {
+        self.mappings.push((prefix.to_string(), target.to_string()));
+        self
+    }
+
+    /// Configure lint rule level in Acton.toml.
+    ///
+    /// # Examples
+    /// ```
+    /// .with_lint_level("unauthorized-access", "warn")
+    /// .with_lint_level("unused-variable", "deny")
+    /// ```
+    pub(crate) fn with_lint_level(mut self, rule: &str, level: &str) -> Self {
+        self.lint_levels.insert(rule.to_string(), level.to_string());
+        self
+    }
+
+    /// Exclude files from lint checks using glob patterns.
+    ///
+    /// # Examples
+    /// ```
+    /// .with_lint_exclude("contracts/generated/*.tolk")
+    /// .with_lint_exclude("contracts/legacy.tolk")
+    /// ```
+    pub(crate) fn with_lint_exclude(mut self, pattern: &str) -> Self {
+        self.lint_excludes.push(pattern.to_string());
+        self
+    }
+
+    /// Configure maximum allowed warning count for `acton check`.
+    pub(crate) fn with_lint_max_warnings(mut self, max_warnings: usize) -> Self {
+        self.lint_max_warnings = Some(max_warnings);
+        self
+    }
+
+    /// Configure format report output from `acton check`.
+    pub(crate) fn with_lint_output_format(mut self, format: &str) -> Self {
+        self.lint_output_format = Some(format.to_string());
+        self
+    }
+
+    pub(crate) fn contract(mut self, name: &str, code: &str) -> Self {
+        self.contracts.push(ContractDef {
+            name: name.to_string(),
+            code: ContractSource::Tolk(code.to_string()),
+            types: None,
+            depends: Vec::new(),
+            output: None,
+            dir: None,
+        });
+        self
+    }
+
+    /// Add a contract file in a custom directory
+    ///
+    /// Useful for testing `init` command discovery with contracts in non-standard locations.
+    /// The file will be created at `{directory}/{name}.tolk`.
+    ///
+    /// # Examples
+    /// ```
+    /// .contract_at("wallet", "src/contracts", CONTRACT_CODE)  // Creates src/contracts/wallet.tolk
+    /// .contract_at("nested", "contracts/nested", CONTRACT_CODE)  // Creates contracts/nested/nested.tolk
+    /// ```
+    pub(crate) fn contract_at(mut self, name: &str, directory: &str, code: &str) -> Self {
+        self.contracts.push(ContractDef {
+            name: name.to_string(),
+            code: ContractSource::Tolk(code.to_string()),
+            types: None,
+            depends: Vec::new(),
+            output: None,
+            dir: Some(directory.to_string()),
+        });
+        self
+    }
+
+    /// Add a contract from a `BoC` file
+    ///
+    /// # Examples
+    /// ```
+    /// .contract_from_boc("precompiled", boc_bytes)
+    /// ```
+    pub(crate) fn contract_from_boc(mut self, name: &str, boc_data: Vec<u8>) -> Self {
+        self.contracts.push(ContractDef {
+            name: name.to_string(),
+            code: ContractSource::Boc(boc_data),
+            types: None,
+            depends: Vec::new(),
+            output: None,
+            dir: None,
+        });
+        self
+    }
+
+    /// Add a contract from a `BoC` file with a Tolk interface file for ABI and wrappers.
+    ///
+    /// # Examples
+    /// ```
+    /// .contract_from_boc_with_types("precompiled", boc_bytes, "contracts/precompiled.types.tolk")
+    /// ```
+    pub(crate) fn contract_from_boc_with_types(
+        mut self,
+        name: &str,
+        boc_data: Vec<u8>,
+        types: &str,
+    ) -> Self {
+        self.contracts.push(ContractDef {
+            name: name.to_string(),
+            code: ContractSource::Boc(boc_data),
+            types: Some(types.to_string()),
+            depends: Vec::new(),
+            output: None,
+            dir: None,
+        });
+        self
+    }
+
+    /// Add a contract with simple dependencies (default `EmbedCode`)
+    ///
+    /// # Examples
+    /// ```
+    /// .contract_with_deps("simple", CONTRACT_CODE, vec!["child"])
+    /// ```
+    #[allow(clippy::needless_pass_by_value)]
+    pub(crate) fn contract_with_deps(mut self, name: &str, code: &str, depends: Vec<&str>) -> Self {
+        self.contracts.push(ContractDef {
+            name: name.to_string(),
+            code: ContractSource::Tolk(code.to_string()),
+            types: None,
+            depends: depends
+                .iter()
+                .map(|s| DependencyDef {
+                    name: (*s).to_string(),
+                    kind: None,
+                    function: None,
+                    path: None,
+                })
+                .collect(),
+            output: None,
+            dir: None,
+        });
+        self
+    }
+
+    /// Add a contract with detailed dependency configuration
+    ///
+    /// # Examples
+    /// ```
+    /// .contract_with_detailed_deps("main", CODE, vec![
+    ///     ("child", Some("library_ref"), None, None),
+    ///     ("utils", Some("embed_code"), Some("customFunc"), None),
+    /// ])
+    /// ```
+    #[allow(clippy::type_complexity)]
+    pub(crate) fn contract_with_detailed_deps(
+        mut self,
+        name: &str,
+        code: &str,
+        depends: Vec<(&str, Option<&str>, Option<&str>, Option<&str>)>,
+    ) -> Self {
+        self.contracts.push(ContractDef {
+            name: name.to_string(),
+            code: ContractSource::Tolk(code.to_string()),
+            types: None,
+            depends: depends
+                .iter()
+                .map(|(dep_name, kind, function, path)| DependencyDef {
+                    name: (*dep_name).to_string(),
+                    kind: kind.map(ToString::to_string),
+                    function: function.map(ToString::to_string),
+                    path: path.map(ToString::to_string),
+                })
+                .collect(),
+            output: None,
+            dir: None,
+        });
+        self
+    }
+
+    /// Add a contract with `BoC` output
+    ///
+    /// # Examples
+    /// ```
+    /// .contract_with_output("simple", CONTRACT_CODE, "simple.boc")
+    /// ```
+    pub(crate) fn contract_with_output(mut self, name: &str, code: &str, output: &str) -> Self {
+        self.contracts.push(ContractDef {
+            name: name.to_string(),
+            code: ContractSource::Tolk(code.to_string()),
+            types: None,
+            depends: Vec::new(),
+            output: Some(output.to_string()),
+            dir: None,
+        });
+        self
+    }
+
+    pub(crate) fn test_file(mut self, name: &str, code: &str) -> Self {
+        self.tests.push((name.to_string(), code.to_string()));
+        self
+    }
+
+    /// Load a test file from disk
+    ///
+    /// # Examples
+    /// ```
+    /// .test_file_from_path("test", "tests/integration/ffi/get_config.tolk")
+    /// ```
+    pub(crate) fn test_file_from_path(mut self, name: &str, path: &str) -> Self {
+        let code = fs::read_to_string(path)
+            .unwrap_or_else(|e| panic!("Failed to read test file from {path}: {e}"));
+        self.tests.push((name.to_string(), code));
+        self
+    }
+
+    /// Load a contract from a `.tolk` file
+    ///
+    /// # Examples
+    /// ```
+    /// .contract_from_path("simple", "contracts/simple.tolk")
+    /// ```
+    pub(crate) fn contract_from_path(mut self, name: &str, path: &str) -> Self {
+        let code = fs::read_to_string(path)
+            .unwrap_or_else(|e| panic!("Failed to read contract file from {path}: {e}"));
+        self.contracts.push(ContractDef {
+            name: name.to_string(),
+            code: ContractSource::Tolk(code),
+            types: None,
+            depends: Vec::new(),
+            output: None,
+            dir: None,
+        });
+        self
+    }
+
+    /// Load a custom file from disk
+    ///
+    /// # Examples
+    /// ```
+    /// .file_from_path("lib/math", "lib/math.tolk")
+    /// ```
+    pub(crate) fn file_from_path(mut self, dest_path: &str, src_path: &str) -> Self {
+        let code = fs::read_to_string(src_path)
+            .unwrap_or_else(|e| panic!("Failed to read file from {src_path}: {e}"));
+        self.files.push((dest_path.to_string(), code));
+        self
+    }
+
+    /// Add a script file
+    ///
+    /// # Examples
+    /// ```
+    /// .script_file("hello", r#"print("Hello");"#)
+    /// ```
+    pub(crate) fn script_file(mut self, name: &str, code: &str) -> Self {
+        self.files
+            .push((format!("scripts/{name}"), code.to_string()));
+        self
+    }
+
+    /// Add a custom file to the project (e.g., library files)
+    ///
+    /// # Examples
+    /// ```
+    /// .file("lib/math", "fun add(a: int, b: int): int { return a + b; }")
+    /// ```
+    pub(crate) fn file(mut self, path: &str, code: &str) -> Self {
+        self.files.push((path.to_string(), code.to_string()));
+        self
+    }
+
+    /// Add a custom raw file to the project (e.g., library files)
+    ///
+    /// # Examples
+    /// ```
+    /// .raw_file("foo.hex", "...")
+    /// ```
+    pub(crate) fn raw_file(mut self, path: &str, code: &str) -> Self {
+        self.raw_files.push((path.to_string(), code.to_string()));
+        self
+    }
+
+    /// Configure test settings in Acton.toml
+    ///
+    /// # Examples
+    /// ```
+    /// .with_test_config(TestConfig {
+    ///     filter: Some("test unit .*".to_string()),
+    ///     coverage: Some(true),
+    ///     backtrace: Some("full".to_string()),
+    /// })
+    /// ```
+    pub(crate) fn with_test_config(mut self, config: TestConfig) -> Self {
+        self.test_config = Some(config);
+        self
+    }
+
+    pub(crate) fn with_wrappers_typescript_output_dir(mut self, path: &str) -> Self {
+        self.wrappers_typescript_output_dir = Some(path.to_string());
+        self
+    }
+
+    pub(crate) fn with_wrappers_tolk_output_dir(mut self, path: &str) -> Self {
+        self.wrappers_tolk_output_dir = Some(path.to_string());
+        self
+    }
+
+    pub(crate) fn with_wrappers_tolk_generate_test(mut self, enabled: bool) -> Self {
+        self.wrappers_tolk_generate_test = Some(enabled);
+        self
+    }
+
+    pub(crate) fn with_wrappers_tolk_test_output_dir(mut self, path: &str) -> Self {
+        self.wrappers_tolk_test_output_dir = Some(path.to_string());
+        self
+    }
+
+    pub(crate) fn build(self) -> Project {
+        let project_path = self.temp_dir.path().join(&self.name);
+        fs::create_dir_all(&project_path).expect("Failed to create project dir");
+
+        Self::copy_lib_to(self.temp_dir.path());
+
+        let contracts_dir = project_path.join("contracts");
+        fs::create_dir_all(&contracts_dir).expect("Failed to create contracts dir");
+
+        let tests_dir = project_path.join("tests");
+        fs::create_dir_all(&tests_dir).expect("Failed to create tests dir");
+
+        for contract in &self.contracts {
+            let contract_dir = if let Some(ref custom_dir) = contract.dir {
+                project_path.join(custom_dir)
+            } else {
+                contracts_dir.clone()
+            };
+            fs::create_dir_all(&contract_dir).expect("Failed to create contract directory");
+
+            match &contract.code {
+                ContractSource::Tolk(code) => {
+                    let file_path = contract_dir.join(format!("{}.tolk", contract.name));
+                    fs::write(file_path, code).expect("Failed to write contract file");
+                }
+                ContractSource::Boc(boc_data) => {
+                    let file_path = contract_dir.join(format!("{}.boc", contract.name));
+                    fs::write(file_path, boc_data).expect("Failed to write BoC file");
+                }
+            }
+        }
+
+        for (name, code) in &self.tests {
+            let adjusted_code = Self::adjust_imports(code);
+            let file_path = tests_dir.join(format!("{name}.test.tolk"));
+            fs::write(file_path, adjusted_code).expect("Failed to write test file");
+        }
+
+        for (path, code) in &self.files {
+            let file_path = project_path.join(format!("{path}.tolk"));
+            if let Some(parent) = file_path.parent() {
+                fs::create_dir_all(parent).expect("Failed to create parent directories");
+            }
+            fs::write(file_path, code).expect("Failed to write custom file");
+        }
+
+        for (path, code) in &self.raw_files {
+            let file_path = project_path.join(path);
+            if let Some(parent) = file_path.parent() {
+                fs::create_dir_all(parent).expect("Failed to create parent directories");
+            }
+            fs::write(file_path, code).expect("Failed to write raw file");
+        }
+
+        if self.create_acton_toml {
+            Self::create_acton_toml(
+                &project_path,
+                &self.name,
+                &self.contracts,
+                &self.scripts,
+                &self.mappings,
+                &self.lint_levels,
+                &self.lint_excludes,
+                self.lint_max_warnings,
+                self.lint_output_format,
+                self.test_config.as_ref(),
+                self.wrappers_tolk_output_dir.as_deref(),
+                self.wrappers_tolk_generate_test,
+                self.wrappers_tolk_test_output_dir.as_deref(),
+                self.wrappers_typescript_output_dir.as_deref(),
+                self.license.as_deref(),
+            );
+        }
+
+        let isolated_home = self.temp_dir.path().join(".acton-test-home");
+        fs::create_dir_all(&isolated_home).expect("Failed to create isolated home dir");
+
+        Project {
+            path: project_path,
+            isolated_home,
+            _temp_dir: self.temp_dir,
+        }
+    }
+
+    fn copy_lib_to(temp_path: &Path) {
+        use include_dir::{Dir, include_dir};
+        static LIB_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/lib");
+
+        let lib_path = temp_path.join("lib");
+        fs::create_dir_all(&lib_path).expect("Failed to create lib dir");
+        LIB_DIR
+            .extract(&lib_path)
+            .expect("Failed to extract lib dir");
+    }
+
+    fn adjust_imports(code: &str) -> String {
+        code.replace("import \"../../../../lib/", "import \"../../lib/")
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn create_acton_toml(
+        project_path: &Path,
+        name: &str,
+        contracts: &[ContractDef],
+        scripts: &[(String, String)],
+        mappings: &[(String, String)],
+        lint_levels: &BTreeMap<String, String>,
+        lint_excludes: &[String],
+        lint_max_warnings: Option<usize>,
+        lint_output_format: Option<String>,
+        test_config: Option<&TestConfig>,
+        wrappers_tolk_output_dir: Option<&str>,
+        wrappers_tolk_generate_test: Option<bool>,
+        wrappers_tolk_test_output_dir: Option<&str>,
+        wrappers_typescript_output_dir: Option<&str>,
+        license: Option<&str>,
+    ) {
+        use std::fmt::Write as _;
+
+        let license_line = if let Some(lic) = license {
+            format!("license = \"{lic}\"\n")
+        } else {
+            String::new()
+        };
+
+        let mut toml_content = format!(
+            r#"[package]
+name = "{name}"
+description = "A test project"
+version = "0.1.0"
+{license_line}
+"#
+        );
+
+        for contract in contracts {
+            let file_extension = match &contract.code {
+                ContractSource::Tolk(_) => "tolk",
+                ContractSource::Boc(_) => "boc",
+            };
+
+            let contract_path = if let Some(ref custom_dir) = contract.dir {
+                format!("{}/{}.{}", custom_dir, contract.name, file_extension)
+            } else {
+                format!("contracts/{}.{}", contract.name, file_extension)
+            };
+
+            write!(
+                toml_content,
+                "[contracts.{}]\ndisplay-name = \"{}\"\nsrc = \"{}\"\n",
+                contract.name.to_lowercase().replace('-', "_"),
+                contract.name,
+                contract_path,
+            )
+            .ok();
+
+            if let Some(types) = &contract.types {
+                let _ = writeln!(toml_content, "types = \"{types}\"");
+            }
+
+            // Generate dependencies
+            if contract.depends.is_empty() {
+                toml_content.push_str("depends = []\n");
+            } else {
+                let has_detailed = contract
+                    .depends
+                    .iter()
+                    .any(|d| d.kind.is_some() || d.function.is_some() || d.path.is_some());
+
+                if has_detailed {
+                    toml_content.push_str("depends = [\n");
+                    for dep in &contract.depends {
+                        if dep.kind.is_none() && dep.function.is_none() && dep.path.is_none() {
+                            let _ = writeln!(toml_content, "  \"{}\",", dep.name);
+                        } else {
+                            let _ = write!(toml_content, "  {{ name = \"{}\"", dep.name);
+                            if let Some(kind) = &dep.kind {
+                                let _ = write!(toml_content, ", kind = \"{kind}\"");
+                            }
+                            if let Some(function) = &dep.function {
+                                let _ = write!(toml_content, ", function = \"{function}\"");
+                            }
+                            if let Some(path) = &dep.path {
+                                let _ = write!(toml_content, ", path = \"{path}\"");
+                            }
+                            toml_content.push_str(" },\n");
+                        }
+                    }
+                    toml_content.push_str("]\n");
+                } else {
+                    let _ = writeln!(
+                        toml_content,
+                        "depends = [{}]",
+                        contract
+                            .depends
+                            .iter()
+                            .map(|d| format!("\"{}\"", d.name))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    );
+                }
+            }
+
+            if let Some(output) = &contract.output {
+                let _ = writeln!(toml_content, "output = \"{output}\"");
+            }
+
+            toml_content.push('\n');
+        }
+
+        if !mappings.is_empty() {
+            toml_content.push_str("[import-mappings]\n");
+            for (prefix, target) in mappings {
+                let _ = writeln!(toml_content, "\"{prefix}\" = \"{target}\"");
+            }
+            toml_content.push('\n');
+        }
+
+        if wrappers_tolk_output_dir.is_some()
+            || wrappers_tolk_generate_test.is_some()
+            || wrappers_tolk_test_output_dir.is_some()
+        {
+            toml_content.push_str("[wrappers.tolk]\n");
+            if let Some(path) = wrappers_tolk_output_dir {
+                let _ = writeln!(toml_content, "output-dir = \"{path}\"");
+            }
+            if let Some(enabled) = wrappers_tolk_generate_test {
+                let _ = writeln!(toml_content, "generate-test = {enabled}");
+            }
+            if let Some(path) = wrappers_tolk_test_output_dir {
+                let _ = writeln!(toml_content, "test-output-dir = \"{path}\"");
+            }
+            toml_content.push('\n');
+        }
+
+        if let Some(path) = wrappers_typescript_output_dir {
+            toml_content.push_str("[wrappers.typescript]\n");
+            let _ = writeln!(toml_content, "output-dir = \"{path}\"");
+            toml_content.push('\n');
+        }
+
+        if !scripts.is_empty() {
+            toml_content.push_str("[scripts]\n");
+            for (name, cmd) in scripts {
+                let _ = writeln!(toml_content, "{name} = \"{cmd}\"");
+            }
+            toml_content.push('\n');
+        }
+
+        if !lint_excludes.is_empty() || lint_max_warnings.is_some() || lint_output_format.is_some()
+        {
+            toml_content.push_str("[lint]\n");
+            if !lint_excludes.is_empty() {
+                toml_content.push_str("exclude = [");
+                toml_content.push_str(
+                    &lint_excludes
+                        .iter()
+                        .map(|pattern| format!("\"{pattern}\""))
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                );
+                toml_content.push_str("]\n");
+            }
+            if let Some(max_warnings) = lint_max_warnings {
+                let _ = writeln!(toml_content, "max-warnings = {max_warnings}");
+            }
+
+            if let Some(output_format) = lint_output_format {
+                let _ = writeln!(toml_content, "output-format = \"{output_format}\"");
+            }
+
+            toml_content.push('\n');
+        }
+
+        if !lint_levels.is_empty() {
+            toml_content.push_str("[lint.rules]\n");
+            for (rule, level) in lint_levels {
+                let _ = writeln!(toml_content, "{rule} = \"{level}\"");
+            }
+            toml_content.push('\n');
+        }
+
+        // Add [test] section if test_config is provided
+        if let Some(config) = test_config {
+            toml_content.push_str("[test]\n");
+
+            if let Some(filter) = &config.filter {
+                let _ = writeln!(toml_content, "filter = \"{filter}\"");
+            }
+
+            if let Some(exclude_patterns) = &config.exclude_patterns {
+                let _ = writeln!(
+                    toml_content,
+                    "exclude = [{}]",
+                    exclude_patterns
+                        .iter()
+                        .map(|p| format!("\"{p}\""))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
+            }
+
+            if let Some(include_patterns) = &config.include_patterns {
+                let _ = writeln!(
+                    toml_content,
+                    "include = [{}]",
+                    include_patterns
+                        .iter()
+                        .map(|p| format!("\"{p}\""))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
+            }
+
+            if let Some(reporters) = &config.reporters {
+                let _ = writeln!(
+                    toml_content,
+                    "reporter = [{}]",
+                    reporters
+                        .iter()
+                        .map(|r| format!("\"{r}\""))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
+            }
+
+            if let Some(debug) = config.debug {
+                let _ = writeln!(toml_content, "debug = {debug}");
+            }
+
+            if let Some(debug_port) = config.debug_port {
+                let _ = writeln!(toml_content, "debug-port = {debug_port}");
+            }
+
+            if let Some(backtrace) = &config.backtrace {
+                let _ = writeln!(toml_content, "backtrace = \"{backtrace}\"");
+            }
+
+            if let Some(junit_path) = &config.junit_path {
+                let _ = writeln!(toml_content, "junit-path = \"{junit_path}\"");
+            }
+
+            if let Some(junit_merge) = config.junit_merge {
+                let _ = writeln!(toml_content, "junit-merge = {junit_merge}");
+            }
+
+            if let Some(fail_fast) = config.fail_fast {
+                let _ = writeln!(toml_content, "fail-fast = {fail_fast}");
+            }
+
+            if let Some(fail_on_diff) = config.fail_on_diff {
+                let _ = writeln!(toml_content, "fail-on-diff = {fail_on_diff}");
+            }
+
+            if let Some(studio_reporting) = config.studio_reporting {
+                let _ = writeln!(toml_content, "studio-reporting = {studio_reporting}");
+            }
+
+            if let Some(gas_profile) = &config.gas_profile {
+                let _ = writeln!(toml_content, "gas-profile = \"{gas_profile}\"");
+            }
+
+            if let Some(gas_profile_format) = &config.gas_profile_format {
+                let _ = writeln!(
+                    toml_content,
+                    "gas-profile-format = \"{gas_profile_format}\""
+                );
+            }
+
+            if let Some(gas_profile_include_tests) = config.gas_profile_include_tests {
+                let _ = writeln!(
+                    toml_content,
+                    "gas-profile-include-tests = {gas_profile_include_tests}"
+                );
+            }
+
+            if config.fuzz_runs.is_some()
+                || config.fuzz_max_test_rejects.is_some()
+                || config.fuzz_seed.is_some()
+            {
+                toml_content.push_str("\n[test.fuzz]\n");
+
+                if let Some(fuzz_runs) = config.fuzz_runs {
+                    let _ = writeln!(toml_content, "runs = {fuzz_runs}");
+                }
+
+                if let Some(fuzz_max_test_rejects) = config.fuzz_max_test_rejects {
+                    let _ = writeln!(toml_content, "max-test-rejects = {fuzz_max_test_rejects}");
+                }
+
+                if let Some(fuzz_seed) = config.fuzz_seed {
+                    let _ = writeln!(toml_content, "seed = {fuzz_seed}");
+                }
+            }
+
+            if config.coverage.is_some()
+                || config.coverage_format.is_some()
+                || config.coverage_file.is_some()
+                || config.coverage_minimum_percent.is_some()
+                || config.coverage_include_wrappers.is_some()
+                || config.coverage_include_tests.is_some()
+            {
+                toml_content.push_str("\n[test.coverage]\n");
+
+                if let Some(coverage) = config.coverage {
+                    let _ = writeln!(toml_content, "enabled = {coverage}");
+                }
+
+                if let Some(coverage_format) = &config.coverage_format {
+                    let _ = writeln!(toml_content, "format = \"{coverage_format}\"");
+                }
+
+                if let Some(coverage_file) = &config.coverage_file {
+                    let _ = writeln!(toml_content, "output-file = \"{coverage_file}\"");
+                }
+
+                if let Some(coverage_minimum_percent) = config.coverage_minimum_percent {
+                    let _ = writeln!(toml_content, "minimum-percent = {coverage_minimum_percent}");
+                }
+
+                if let Some(coverage_include_wrappers) = config.coverage_include_wrappers {
+                    let _ = writeln!(
+                        toml_content,
+                        "include-wrappers = {coverage_include_wrappers}"
+                    );
+                }
+
+                if let Some(coverage_include_tests) = config.coverage_include_tests {
+                    let _ = writeln!(toml_content, "include-tests = {coverage_include_tests}");
+                }
+            }
+
+            toml_content.push('\n');
+        }
+
+        let config_path = project_path.join("Acton.toml");
+        fs::write(config_path, toml_content).expect("Failed to write Acton.toml");
+    }
+}
+
+pub(crate) struct Project {
+    path: PathBuf,
+    isolated_home: PathBuf,
+    _temp_dir: TempDir,
+}
+
+impl Project {
+    #[allow(dead_code)]
+    pub(crate) fn acton(&self) -> ActonCommand {
+        let cmd = ProcessCommandBuilder::new(acton_exe())
+            .env("PATH", acton_path_env())
+            .env("HOME", &self.isolated_home)
+            .env("USERPROFILE", &self.isolated_home)
+            .env("ACTON_LOG_DIR", self.path.join(".acton-test-logs"));
+        ActonCommand {
+            cmd,
+            project: Arc::new(ProjectRef {
+                path: self.path.clone(),
+            }),
+            test_paths: Vec::new(),
+            filter: None,
+            build_contract: None,
+            build_clear_cache: false,
+            build_graph: None,
+            build_out_dir: None,
+            build_gen_dir: None,
+            build_output_abi: None,
+            build_output_fift: None,
+            disasm_string: None,
+            disasm_output: None,
+            disasm_address: None,
+            disasm_api_key: None,
+            disasm_net: None,
+            disasm_follow_libraries: false,
+            disasm_show_hashes: false,
+            disasm_show_offsets: false,
+            compile_json: false,
+            compile_base64_only: false,
+            compile_boc: None,
+            compile_fift: None,
+            compile_source_map: None,
+            compile_allow_no_entrypoint: false,
+            test_reporters: Vec::new(),
+            junit_merge: false,
+            test_exclude_patterns: Vec::new(),
+            test_include_patterns: Vec::new(),
+            verify_contract: None,
+            verify_address: None,
+            verify_wallet: None,
+            verify_network: None,
+            test_fail_fast: false,
+            test_no_capture: false,
+            script_fork_net: None,
+            build_info: false,
+            force_no_color_env: true,
+            color_mode: None,
+            wallet_secure_default_false: false,
+        }
+    }
+
+    pub(crate) fn path(&self) -> &Path {
+        &self.path
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn isolated_home(&self) -> &Path {
+        &self.isolated_home
+    }
+}
+
+pub(crate) struct ProjectRef {
+    pub path: PathBuf,
+}
+
+pub(crate) struct ActonCommand {
+    pub(crate) cmd: ProcessCommandBuilder,
+    pub(crate) project: Arc<ProjectRef>,
+    pub(crate) test_paths: Vec<String>,
+    pub(crate) filter: Option<String>,
+    pub(crate) build_contract: Option<String>,
+    pub(crate) build_clear_cache: bool,
+    pub(crate) build_graph: Option<Option<String>>,
+    pub(crate) build_out_dir: Option<String>,
+    pub(crate) build_gen_dir: Option<String>,
+    pub(crate) build_output_abi: Option<String>,
+    pub(crate) build_output_fift: Option<String>,
+    pub(crate) disasm_string: Option<String>,
+    pub(crate) disasm_output: Option<String>,
+    pub(crate) disasm_address: Option<String>,
+    pub(crate) disasm_api_key: Option<String>,
+    pub(crate) disasm_net: Option<String>,
+    pub(crate) disasm_follow_libraries: bool,
+    pub(crate) disasm_show_hashes: bool,
+    pub(crate) disasm_show_offsets: bool,
+    pub(crate) compile_json: bool,
+    pub(crate) compile_base64_only: bool,
+    pub(crate) compile_boc: Option<String>,
+    pub(crate) compile_fift: Option<String>,
+    pub(crate) compile_source_map: Option<String>,
+    pub(crate) compile_allow_no_entrypoint: bool,
+    pub(crate) test_reporters: Vec<String>,
+    pub(crate) junit_merge: bool,
+    pub(crate) test_exclude_patterns: Vec<String>,
+    pub(crate) test_include_patterns: Vec<String>,
+    pub(crate) verify_contract: Option<String>,
+    pub(crate) verify_address: Option<String>,
+    pub(crate) verify_wallet: Option<String>,
+    pub(crate) verify_network: Option<String>,
+    pub(crate) test_fail_fast: bool,
+    pub(crate) test_no_capture: bool,
+    pub(crate) script_fork_net: Option<String>,
+    pub(crate) build_info: bool,
+    pub(crate) force_no_color_env: bool,
+    pub(crate) color_mode: Option<ColorMode>,
+    pub(crate) wallet_secure_default_false: bool,
+}
+
+#[allow(dead_code)]
+impl ActonCommand {
+    pub(crate) fn build(mut self) -> Self {
+        self.cmd = self.cmd.arg("build").current_dir(&self.project.path);
+        self
+    }
+
+    /// Start test command (defaults to running all tests in current directory)
+    pub(crate) fn test(mut self) -> Self {
+        self.cmd = self.cmd.arg("test").current_dir(&self.project.path);
+        self
+    }
+
+    /// Start init command
+    pub(crate) fn init(mut self) -> Self {
+        self.cmd = self.cmd.arg("init").current_dir(&self.project.path);
+        self
+    }
+
+    /// Start wrapper command
+    pub(crate) fn wrapper(mut self, contract_name: &str) -> Self {
+        self.cmd = self
+            .cmd
+            .arg("wrapper")
+            .arg(contract_name)
+            .current_dir(&self.project.path);
+        self
+    }
+
+    pub(crate) fn generate_test_stub(mut self) -> Self {
+        self.cmd = self.cmd.arg("--test");
+        self
+    }
+
+    pub(crate) fn generate_typescript_wrapper(mut self) -> Self {
+        self.cmd = self.cmd.arg("--ts");
+        self
+    }
+
+    /// Specify output wrapper file
+    pub(crate) fn wrapper_output(mut self, path: &str) -> Self {
+        self.cmd = self.cmd.arg("--output").arg(path);
+        self
+    }
+
+    pub(crate) fn wrapper_output_dir(mut self, path: &str) -> Self {
+        self.cmd = self.cmd.arg("--output-dir").arg(path);
+        self
+    }
+
+    /// Specify output test file
+    pub(crate) fn test_output(mut self, path: &str) -> Self {
+        self.cmd = self.cmd.arg("--test-output").arg(path);
+        self
+    }
+
+    pub(crate) fn test_output_dir(mut self, path: &str) -> Self {
+        self.cmd = self.cmd.arg("--test-output-dir").arg(path);
+        self
+    }
+
+    /// Start script command
+    ///
+    /// # Examples
+    /// ```
+    /// .script("scripts/hello.tolk")
+    /// ```
+    pub(crate) fn script(mut self, script_path: &str) -> Self {
+        self.cmd = self
+            .cmd
+            .arg("script")
+            .arg(script_path)
+            .current_dir(&self.project.path);
+        self
+    }
+
+    pub(crate) fn run_script_cmd(mut self, script_name: &str) -> Self {
+        self.cmd = self
+            .cmd
+            .arg("run")
+            .arg(script_name)
+            .current_dir(&self.project.path);
+        self
+    }
+
+    pub(crate) fn arg(mut self, arg: &str) -> Self {
+        self.cmd = self.cmd.arg(arg);
+        self
+    }
+
+    pub(crate) fn args<I, S>(mut self, args: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<OsStr>,
+    {
+        for arg in args {
+            self.cmd = self.cmd.arg(arg);
+        }
+        self
+    }
+
+    pub(crate) fn env(mut self, key: &str, value: &str) -> Self {
+        self.cmd = self.cmd.env(key, value);
+        self
+    }
+
+    pub(crate) fn env_remove(mut self, key: &str) -> Self {
+        self.cmd = self.cmd.env_remove(key);
+        self
+    }
+
+    pub(crate) fn stdin(mut self, stream: impl snapbox::IntoData) -> Self {
+        self.cmd = self.cmd.stdin(stream);
+        self
+    }
+
+    /// Keep process color-related environment variables unchanged.
+    ///
+    /// By default, tests force `NO_COLOR=1` for stable snapshots.
+    /// Use this when you need to validate auto color detection behavior.
+    pub(crate) fn keep_color_env(mut self) -> Self {
+        self.force_no_color_env = false;
+        self
+    }
+
+    pub(crate) fn color_mode(mut self, mode: ColorMode) -> Self {
+        self.color_mode = Some(mode);
+        self
+    }
+
+    pub(crate) fn current_dir(mut self, path: impl AsRef<Path>) -> Self {
+        self.cmd = self.cmd.current_dir(path);
+        self
+    }
+
+    /// Start disasm command (without input - use with `disasm_file` or `disasm_string`)
+    ///
+    /// # Examples
+    /// ```
+    /// .disasm().disasm_file("contract.boc")
+    /// .disasm().disasm_string("hex_or_base64_string")
+    /// ```
+    pub(crate) fn disasm(mut self) -> Self {
+        self.cmd = self.cmd.arg("disasm").current_dir(&self.project.path);
+        self
+    }
+
+    pub(crate) fn fmt(mut self) -> Self {
+        self.cmd = self.cmd.arg("fmt").current_dir(&self.project.path);
+        self
+    }
+
+    pub(crate) fn check(mut self) -> Self {
+        self.cmd = self.cmd.arg("check").current_dir(&self.project.path);
+        self
+    }
+
+    /// Start disasm command with file input
+    ///
+    /// # Examples
+    /// ```
+    /// .disasm_file("contract.boc")
+    /// ```
+    pub(crate) fn disasm_file(mut self, file_path: &str) -> Self {
+        self.cmd = self
+            .cmd
+            .arg("disasm")
+            .arg(file_path)
+            .current_dir(&self.project.path);
+        self
+    }
+
+    /// Start disasm command with string input (hex or base64)
+    ///
+    /// # Examples
+    /// ```
+    /// .disasm_string("base64_encoded_boc")
+    /// ```
+    pub(crate) fn disasm_string(mut self, boc_string: &str) -> Self {
+        self.cmd = self.cmd.current_dir(&self.project.path);
+        self.disasm_string = Some(boc_string.to_string());
+        self
+    }
+
+    /// Specify output file for disasm result
+    ///
+    /// # Examples
+    /// ```
+    /// .disasm_file("contract.boc").with_output("output.tasm")
+    /// ```
+    pub(crate) fn with_output(mut self, output_path: &str) -> Self {
+        self.disasm_output = Some(output_path.to_string());
+        self
+    }
+
+    /// Specify contract address for blockchain disasm
+    ///
+    /// # Examples
+    /// ```
+    /// .disasm().with_address("UQA_ftKIJsHEAE_UgtFOUK15hPzycZooFuUr8duyY9T3kwwM")
+    /// ```
+    pub(crate) fn with_address(mut self, address: &str) -> Self {
+        self.disasm_address = Some(address.to_string());
+        self
+    }
+
+    /// Specify `TON Center` API key env value for test requests
+    ///
+    /// # Examples
+    /// ```
+    /// .disasm().with_address("...").with_api_key("your-api-key")
+    /// ```
+    pub(crate) fn with_api_key(mut self, api_key: &str) -> Self {
+        self.disasm_api_key = Some(api_key.to_string());
+        self
+    }
+
+    /// Specify network for remote fetching (mainnet, testnet, or custom:<name>)
+    ///
+    /// # Examples
+    /// ```
+    /// .disasm().with_address("...").with_net("mainnet")
+    /// ```
+    pub(crate) fn with_net(mut self, net: &str) -> Self {
+        self.disasm_net = Some(net.to_string());
+        self
+    }
+
+    /// Enable following library references
+    ///
+    /// # Examples
+    /// ```
+    /// .disasm().with_address("...").follow_libraries()
+    /// ```
+    pub(crate) fn follow_libraries(mut self) -> Self {
+        self.disasm_follow_libraries = true;
+        self
+    }
+
+    pub(crate) fn show_hashes(mut self) -> Self {
+        self.disasm_show_hashes = true;
+        self
+    }
+
+    pub(crate) fn show_offsets(mut self) -> Self {
+        self.disasm_show_offsets = true;
+        self
+    }
+
+    pub(crate) fn compile(mut self, file_path: &str) -> Self {
+        self.cmd = self
+            .cmd
+            .arg("compile")
+            .arg(file_path)
+            .current_dir(&self.project.path);
+        self
+    }
+
+    pub(crate) fn with_json(mut self) -> Self {
+        self.compile_json = true;
+        self
+    }
+
+    pub(crate) fn base64_only(mut self) -> Self {
+        self.compile_base64_only = true;
+        self
+    }
+
+    pub(crate) fn with_boc_output(mut self, boc_path: &str) -> Self {
+        self.compile_boc = Some(boc_path.to_string());
+        self
+    }
+
+    pub(crate) fn with_fift_output(mut self, fift_path: &str) -> Self {
+        self.compile_fift = Some(fift_path.to_string());
+        self
+    }
+
+    pub(crate) fn with_source_map(mut self, source_map_path: &str) -> Self {
+        self.compile_source_map = Some(source_map_path.to_string());
+        self
+    }
+
+    pub(crate) fn allow_no_entrypoint(mut self) -> Self {
+        self.compile_allow_no_entrypoint = true;
+        self
+    }
+
+    /// Specify path to test file or directory
+    ///
+    /// # Examples
+    /// ```
+    /// .test().path(".")                   // All tests (default)
+    /// .test().path("tests/my.test.tolk")  // Specific file
+    /// .test().path("tests/")              // Specific directory
+    /// ```
+    pub(crate) fn path(mut self, path: &str) -> Self {
+        self.test_paths = vec![path.to_string()];
+        self
+    }
+
+    /// Specify several paths to test files or directories.
+    pub(crate) fn paths(mut self, paths: &[&str]) -> Self {
+        self.test_paths = paths.iter().map(ToString::to_string).collect();
+        self
+    }
+
+    /// Filter tests by name pattern (regex)
+    ///
+    /// # Examples
+    /// ```
+    /// .test().filter("test basic")        // Run tests matching "test basic"
+    /// .test().filter("counter.*")         // Run tests starting with "counter"
+    /// ```
+    pub(crate) fn filter(mut self, pattern: &str) -> Self {
+        self.filter = Some(pattern.to_string());
+        self
+    }
+
+    pub(crate) fn verbose(mut self) -> Self {
+        self.cmd = self.cmd.arg("--verbose");
+        self
+    }
+
+    pub(crate) fn exclude_pattern(mut self, pattern: &str) -> Self {
+        self.test_exclude_patterns.push(pattern.to_string());
+        self
+    }
+
+    pub(crate) fn include_pattern(mut self, pattern: &str) -> Self {
+        self.test_include_patterns.push(pattern.to_string());
+        self
+    }
+
+    /// Enable backtrace output
+    ///
+    /// # Examples
+    /// ```
+    /// .test().with_backtrace("full")      // Full backtrace
+    /// ```
+    pub(crate) fn with_backtrace(mut self, level: &str) -> Self {
+        self.cmd = self.cmd.arg("--backtrace").arg(level);
+        self
+    }
+
+    /// Enable coverage collection
+    pub(crate) fn with_coverage(mut self) -> Self {
+        self.cmd = self.cmd.arg("--coverage");
+        self
+    }
+
+    /// Enable coverage with specific format (e.g., "lcov")
+    pub(crate) fn with_coverage_format(mut self, format: &str) -> Self {
+        self.cmd = self.cmd.arg("--coverage-format").arg(format);
+        self
+    }
+
+    /// Enable coverage with custom output file
+    pub(crate) fn with_coverage_file(mut self, file: &str) -> Self {
+        self.cmd = self.cmd.arg("--coverage-file").arg(file);
+        self
+    }
+
+    /// Require a minimum final coverage score percentage.
+    pub(crate) fn with_coverage_minimum_percent(mut self, percent: f64) -> Self {
+        self.cmd = self
+            .cmd
+            .arg("--coverage-minimum-percent")
+            .arg(percent.to_string());
+        self
+    }
+
+    /// Include files under the `@wrappers` mapping in coverage reports.
+    pub(crate) fn with_coverage_include_wrappers(mut self) -> Self {
+        self.cmd = self.cmd.arg("--coverage-include-wrappers");
+        self
+    }
+
+    /// Include files under `tests/` and `.test.tolk` files in coverage reports.
+    pub(crate) fn with_coverage_include_tests(mut self) -> Self {
+        self.cmd = self.cmd.arg("--coverage-include-tests");
+        self
+    }
+
+    /// Write a gas-weighted execution profile.
+    pub(crate) fn with_gas_profile(mut self, file: &str) -> Self {
+        self.cmd = self.cmd.arg("--gas-profile").arg(file);
+        self
+    }
+
+    /// Select the gas profile export format (e.g. "cpuprofile", "collapsed").
+    pub(crate) fn with_gas_profile_format(mut self, format: &str) -> Self {
+        self.cmd = self.cmd.arg("--gas-profile-format").arg(format);
+        self
+    }
+
+    /// Include `.test.tolk` unit-test execution in the generated gas profile.
+    pub(crate) fn with_gas_profile_include_tests(mut self) -> Self {
+        self.cmd = self.cmd.arg("--gas-profile-include-tests");
+        self
+    }
+
+    /// Add test reporter
+    ///
+    /// # Examples
+    /// ```
+    /// .test().with_reporter("teamcity")           // TeamCity format
+    /// .test().with_reporter("junit")              // JUnit XML format
+    /// .test().with_reporter("console")            // Console format (default)
+    /// ```
+    pub(crate) fn with_reporter(mut self, reporter: &str) -> Self {
+        self.test_reporters.push(reporter.to_string());
+        self
+    }
+
+    /// Enable fail-fast mode
+    pub(crate) fn fail_fast(mut self) -> Self {
+        self.test_fail_fast = true;
+        self
+    }
+
+    pub(crate) fn no_capture(mut self) -> Self {
+        self.test_no_capture = true;
+        self
+    }
+
+    /// Enable `JUnit` merge mode (all suites in single file)
+    ///
+    /// # Examples
+    /// ```
+    /// .test().with_reporter("junit").with_junit_merge()
+    /// ```
+    pub(crate) fn with_junit_merge(mut self) -> Self {
+        self.junit_merge = true;
+        self
+    }
+
+    /// Build specific contract (only for build command)
+    ///
+    /// # Examples
+    /// ```
+    /// .build().contract("my_contract")   // Build only my_contract and its dependencies
+    /// ```
+    pub(crate) fn contract(mut self, name: &str) -> Self {
+        self.build_contract = Some(name.to_string());
+        self
+    }
+
+    pub(crate) fn verify(mut self) -> Self {
+        self.cmd = self.cmd.arg("verify").current_dir(&self.project.path);
+        self
+    }
+
+    pub(crate) fn verify_contract(mut self, name: &str) -> Self {
+        self.verify_contract = Some(name.to_string());
+        self
+    }
+
+    pub(crate) fn verify_address(mut self, address: &str) -> Self {
+        self.verify_address = Some(address.to_string());
+        self
+    }
+
+    pub(crate) fn wallet(mut self, wallet: &str) -> Self {
+        self.verify_wallet = Some(wallet.to_string());
+        self
+    }
+
+    pub(crate) fn verify_network(mut self, network: &str) -> Self {
+        self.verify_network = Some(network.to_string());
+        self
+    }
+
+    pub(crate) fn fork_net(mut self, network: &str) -> Self {
+        self.script_fork_net = Some(network.to_string());
+        self
+    }
+
+    pub(crate) fn library(mut self) -> Self {
+        self.cmd = self.cmd.arg("library").current_dir(&self.project.path);
+        self
+    }
+
+    pub(crate) fn fetch(mut self, hash: &str) -> Self {
+        self.cmd = self.cmd.arg("fetch").arg(hash);
+        self
+    }
+
+    pub(crate) fn publish(mut self) -> Self {
+        self.cmd = self.cmd.arg("publish");
+        self
+    }
+
+    pub(crate) fn with_code(mut self, code: &str) -> Self {
+        self.cmd = self.cmd.arg("--code").arg(code);
+        self
+    }
+
+    pub(crate) fn wallet_new(mut self) -> Self {
+        self.cmd = self
+            .cmd
+            .arg("wallet")
+            .arg("new")
+            .current_dir(&self.project.path);
+        self.wallet_secure_default_false = true;
+        self
+    }
+
+    pub(crate) fn wallet_import(mut self) -> Self {
+        self.cmd = self
+            .cmd
+            .arg("wallet")
+            .arg("import")
+            .current_dir(&self.project.path);
+        self.wallet_secure_default_false = true;
+        self
+    }
+
+    pub(crate) fn wallet_list(mut self) -> Self {
+        self.cmd = self
+            .cmd
+            .arg("wallet")
+            .arg("list")
+            .current_dir(&self.project.path);
+        self
+    }
+
+    pub(crate) fn wallet_export_mnemonic(mut self) -> Self {
+        self.cmd = self
+            .cmd
+            .arg("wallet")
+            .arg("export-mnemonic")
+            .current_dir(&self.project.path);
+        self
+    }
+
+    pub(crate) fn wallet_sign(mut self) -> Self {
+        self.cmd = self
+            .cmd
+            .arg("wallet")
+            .arg("sign")
+            .current_dir(&self.project.path);
+        self
+    }
+
+    pub(crate) fn wallet_remove(mut self) -> Self {
+        self.cmd = self
+            .cmd
+            .arg("wallet")
+            .arg("remove")
+            .current_dir(&self.project.path);
+        self
+    }
+
+    pub(crate) fn wallet_airdrop(mut self) -> Self {
+        self.cmd = self
+            .cmd
+            .arg("wallet")
+            .arg("airdrop")
+            .current_dir(&self.project.path);
+        self
+    }
+
+    pub(crate) fn with_duration(mut self, duration: &str) -> Self {
+        self.cmd = self.cmd.arg("--duration").arg(duration);
+        self
+    }
+
+    pub(crate) fn with_disasm_flag(mut self) -> Self {
+        self.cmd = self.cmd.arg("--disasm");
+        self
+    }
+
+    /// Clear compilation cache (for build and script commands)
+    ///
+    /// # Examples
+    /// ```
+    /// .build().clear_cache()              // Clear cache before building
+    /// .script("test.tolk").clear_cache()  // Clear cache before running script
+    /// ```
+    pub(crate) fn clear_cache(mut self) -> Self {
+        self.build_clear_cache = true;
+        self
+    }
+
+    /// Generate dependency graph DOT (only for build command)
+    ///
+    /// # Examples
+    /// ```
+    /// .build().with_graph(None)           // Generate deps.dot (default)
+    /// .build().with_graph(Some("my.dot")) // Generate my.dot
+    /// ```
+    pub(crate) fn with_graph(mut self, path: Option<&str>) -> Self {
+        self.build_graph = Some(path.map(ToString::to_string));
+        self
+    }
+
+    /// Set output directory for build artifacts (only for build command)
+    ///
+    /// # Examples
+    /// ```
+    /// .build().with_out_dir("artifacts")     // Use artifacts/ directory
+    /// .build().with_out_dir("dist/build")    // Use dist/build/ directory
+    /// ```
+    pub(crate) fn with_out_dir(mut self, path: &str) -> Self {
+        self.build_out_dir = Some(path.to_string());
+        self
+    }
+
+    /// Set output directory for generated dependency files (only for build command)
+    pub(crate) fn with_gen_dir(mut self, path: &str) -> Self {
+        self.build_gen_dir = Some(path.to_string());
+        self
+    }
+
+    /// Set output directory for contract ABI JSON files (only for build command)
+    pub(crate) fn with_output_abi(mut self, path: &str) -> Self {
+        self.build_output_abi = Some(path.to_string());
+        self
+    }
+
+    /// Set output directory for compiled Fift files (only for build command)
+    pub(crate) fn with_output_fift(mut self, path: &str) -> Self {
+        self.build_output_fift = Some(path.to_string());
+        self
+    }
+
+    /// Enable info output for build command
+    pub(crate) fn with_info(mut self) -> Self {
+        self.build_info = true;
+        self
+    }
+
+    /// Show decoded message bodies in printed transaction trees.
+    pub(crate) fn show_bodies(mut self) -> Self {
+        self.cmd = self.cmd.arg("--show-bodies");
+        self
+    }
+
+    fn into_prepared_command(mut self) -> ProcessCommandBuilder {
+        for path in self.test_paths {
+            self.cmd = self.cmd.arg(path);
+        }
+
+        if let Some(filter) = self.filter {
+            self.cmd = self.cmd.arg("--filter").arg(filter);
+        }
+
+        if !self.test_reporters.is_empty() {
+            for reporter in &self.test_reporters {
+                self.cmd = self.cmd.arg("--reporter").arg(reporter);
+            }
+        }
+
+        if self.junit_merge {
+            self.cmd = self.cmd.arg("--junit-merge");
+        }
+
+        for pattern in &self.test_exclude_patterns {
+            self.cmd = self.cmd.arg("--exclude").arg(pattern);
+        }
+
+        for pattern in &self.test_include_patterns {
+            self.cmd = self.cmd.arg("--include").arg(pattern);
+        }
+
+        if self.test_fail_fast {
+            self.cmd = self.cmd.arg("--fail-fast");
+        }
+
+        if self.test_no_capture {
+            self.cmd = self.cmd.arg("--no-capture");
+        }
+
+        if let Some(contract) = self.build_contract {
+            self.cmd = self.cmd.arg(contract);
+        }
+
+        if let Some(contract) = self.verify_contract {
+            self.cmd = self.cmd.arg(contract);
+        }
+
+        if let Some(address) = self.verify_address {
+            self.cmd = self.cmd.arg("--address").arg(address);
+        }
+
+        if let Some(wallet) = self.verify_wallet {
+            self.cmd = self.cmd.arg("--wallet").arg(wallet);
+        }
+
+        if let Some(network) = self.verify_network {
+            self.cmd = self.cmd.arg("--net").arg(network);
+        }
+
+        if let Some(network) = self.script_fork_net {
+            self.cmd = self.cmd.arg("--fork-net").arg(network);
+        }
+
+        if self.build_clear_cache {
+            self.cmd = self.cmd.arg("--clear-cache");
+        }
+
+        if let Some(graph_path) = self.build_graph {
+            self.cmd = self.cmd.arg("--graph");
+            if let Some(path) = graph_path {
+                self.cmd = self.cmd.arg(path);
+            } else {
+                self.cmd = self.cmd.arg("");
+            }
+        }
+
+        if let Some(out_dir) = self.build_out_dir {
+            self.cmd = self.cmd.arg("--out-dir").arg(out_dir);
+        }
+
+        if let Some(gen_dir) = self.build_gen_dir {
+            self.cmd = self.cmd.arg("--gen-dir").arg(gen_dir);
+        }
+
+        if let Some(output_abi_dir) = self.build_output_abi {
+            self.cmd = self.cmd.arg("--output-abi").arg(output_abi_dir);
+        }
+
+        if let Some(output_fift_dir) = self.build_output_fift {
+            self.cmd = self.cmd.arg("--output-fift").arg(output_fift_dir);
+        }
+
+        if self.build_info {
+            self.cmd = self.cmd.arg("--info");
+        }
+
+        if let Some(boc_string) = self.disasm_string {
+            self.cmd = self.cmd.arg("--string").arg(boc_string);
+        }
+
+        if let Some(output_file) = self.disasm_output {
+            self.cmd = self.cmd.arg("--output").arg(output_file);
+        }
+
+        if let Some(address) = self.disasm_address {
+            self.cmd = self.cmd.arg("--address").arg(address);
+        }
+
+        if let Some(api_key) = self.disasm_api_key {
+            self.cmd = self
+                .cmd
+                .env(TONCENTER_MAINNET_API_KEY_ENV, &api_key)
+                .env(TONCENTER_TESTNET_API_KEY_ENV, &api_key);
+
+            if let Some(custom_network_name) = self
+                .disasm_net
+                .as_deref()
+                .and_then(|net| net.strip_prefix("custom:"))
+                .and_then(custom_env_var_name)
+            {
+                self.cmd = self.cmd.env(&custom_network_name, &api_key);
+            }
+        }
+
+        if let Some(net) = self.disasm_net {
+            self.cmd = self.cmd.arg("--net").arg(net);
+        }
+
+        if self.disasm_follow_libraries {
+            self.cmd = self.cmd.arg("--follow-libraries");
+        }
+
+        if self.disasm_show_hashes {
+            self.cmd = self.cmd.arg("--show-hashes");
+        }
+
+        if self.disasm_show_offsets {
+            self.cmd = self.cmd.arg("--show-offsets");
+        }
+
+        if self.compile_json {
+            self.cmd = self.cmd.arg("--json");
+        }
+
+        if self.compile_base64_only {
+            self.cmd = self.cmd.arg("--base64-only");
+        }
+
+        if let Some(boc_path) = self.compile_boc {
+            self.cmd = self.cmd.arg("--boc").arg(boc_path);
+        }
+
+        if let Some(fift_path) = self.compile_fift {
+            self.cmd = self.cmd.arg("--fift").arg(fift_path);
+        }
+
+        if let Some(source_map_path) = self.compile_source_map {
+            self.cmd = self.cmd.arg("--source-map").arg(source_map_path);
+        }
+
+        if self.compile_allow_no_entrypoint {
+            self.cmd = self.cmd.arg("--allow-no-entrypoint");
+        }
+
+        if let Some(mode) = self.color_mode {
+            self.cmd = self.cmd.arg("--color").arg(mode.to_string());
+        }
+
+        // Keep tests deterministic by defaulting wallet new/import to plaintext mnemonic
+        // storage, but avoid duplicate --secure flags when tests set it explicitly.
+        if self.wallet_secure_default_false
+            && !self.cmd.has_arg_exact_or_prefixed("--secure", "--secure=")
+        {
+            self.cmd = self.cmd.arg("--secure").arg("false");
+        }
+
+        if self.force_no_color_env {
+            self.cmd = self.cmd.env("NO_COLOR", "1");
+        }
+
+        self.cmd = self
+            .cmd
+            .env("ACTON_TEST_TONCENTER_RETRY_BACKOFF_MS", "0")
+            .env("ACTON_TEST_TONCENTER_MIN_REQUEST_INTERVAL_MS", "0");
+
+        self.cmd
+    }
+
+    /// Run the command and return output
+    pub(crate) fn run(self) -> TestOutput {
+        let project_path = self.project.path.clone();
+        let output = self
+            .into_prepared_command()
+            .into_snapbox(assert_ui())
+            .assert();
+        TestOutput {
+            output,
+            project_path,
+        }
+    }
+
+    /// Spawn a long-running command with captured output.
+    pub(crate) fn spawn(self) -> std::io::Result<std::process::Child> {
+        self.into_spawn_command().spawn()
+    }
+
+    /// Spawn a long-running command as a process-group leader for terminal signal tests.
+    #[cfg(unix)]
+    pub(crate) fn spawn_in_new_process_group(self) -> std::io::Result<std::process::Child> {
+        use std::os::unix::process::CommandExt;
+
+        let mut command = self.into_spawn_command();
+        command.process_group(0);
+        command.spawn()
+    }
+
+    fn into_spawn_command(self) -> std::process::Command {
+        let mut command = self.into_prepared_command().into_std();
+        command
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped());
+        command
+    }
+
+    /// Spawn command in a pseudo-terminal for interactive tests.
+    #[cfg(unix)]
+    pub(crate) fn spawn_pty(self) -> PtySession {
+        let project_path = self.project.path.clone();
+        let session = expectrl::Session::spawn(self.into_prepared_command().into_std())
+            .expect("Failed to spawn command in PTY");
+        PtySession::new(session, project_path)
+    }
+}

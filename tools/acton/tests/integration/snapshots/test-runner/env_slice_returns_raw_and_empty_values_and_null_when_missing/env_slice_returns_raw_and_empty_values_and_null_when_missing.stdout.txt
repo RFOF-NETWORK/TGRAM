@@ -1,0 +1,10 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/env_slice_branches.test.tolk (1 test)
+  ✓ bp stdlib env slice branches [TIME]
+
+ ✓ 1 passed in 1 file

@@ -1,0 +1,10 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/env_long_values.test.tolk (1 test)
+  ✓ bp stdlib env string and slice long values [TIME]
+
+ ✓ 1 passed in 1 file

@@ -1,0 +1,2 @@
+   Generated wrappers/MyContract.gen.tolk
+   Generated tests/my_contract.test.tolk

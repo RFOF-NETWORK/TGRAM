@@ -1,0 +1,23 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+   Compiling harness
+    Finished in [TIME]
+    Finished in [TIME]
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/tx_expect.test.tolk (1 test)
+  ✗ ae emit external message missing [TIME]
+    └─ Error: expect(actual).toEmitExternalMessage<ExternalNotice>()
+        N/A -> sender A
+        └── Ping 0.5 GRAM -> harness B                                                  gas=778
+        
+        Cannot find external message ExternalNotice
+        with:
+          opcode=0xae110003 ExternalNotice
+      └─ at tests/tx_expect.test[LINE]
+
+ ✗ 1 failed in 1 file
+
+Some tests failed.

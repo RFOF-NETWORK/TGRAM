@@ -1,0 +1,6 @@
+Error: error: Failed to import: Cannot import symlink file
+    --> [ROOT]/contracts/main[LINE]
+     | 
+   2 |             import "@core/math"
+     |                    ^^^^^^^^^^^^
+

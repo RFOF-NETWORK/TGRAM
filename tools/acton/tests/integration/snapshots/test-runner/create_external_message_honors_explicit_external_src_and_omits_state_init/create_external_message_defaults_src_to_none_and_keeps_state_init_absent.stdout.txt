@@ -1,0 +1,10 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/dh_create_external_message.test.tolk (1 test)
+  ✓ dh create external message default src no state init [TIME]
+
+ ✓ 1 passed in 1 file

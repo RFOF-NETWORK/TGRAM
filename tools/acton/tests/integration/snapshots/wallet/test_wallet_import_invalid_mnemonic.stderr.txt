@@ -1,0 +1,4 @@
+Error: Invalid mnemonic phrase
+
+Caused by:
+  expected 24 mnemonic words, got 3

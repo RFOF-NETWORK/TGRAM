@@ -1,0 +1,7 @@
+Error: error: expected <expression>, got `;`
+    --> [ROOT]/contracts/broken[LINE]
+     | 
+   1 | fun main() { return 1 +; }
+     |                        ^
+
+Fix compilation error first to publish library

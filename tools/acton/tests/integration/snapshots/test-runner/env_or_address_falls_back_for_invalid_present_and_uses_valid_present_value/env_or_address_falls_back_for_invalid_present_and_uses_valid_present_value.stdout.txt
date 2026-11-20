@@ -1,0 +1,10 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/env_or_address.test.tolk (1 test)
+  ✓ eh stdlib env or address fallback vs valid precedence [TIME]
+
+ ✓ 1 passed in 1 file

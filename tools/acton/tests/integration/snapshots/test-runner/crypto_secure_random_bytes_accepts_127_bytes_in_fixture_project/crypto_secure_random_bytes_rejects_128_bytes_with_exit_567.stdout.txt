@@ -1,0 +1,10 @@
+  Installing standard library [ACTON_VERSION]
+   Compiling contracts
+     Running tests
+
+ TEST  [ROOT]
+
+ > tests/secure_random_boundary.test.tolk (1 test)
+  ✓ ay stdlib secure random rejects 128 bytes [TIME]
+
+ ✓ 1 passed in 1 file
