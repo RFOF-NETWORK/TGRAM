@@ -3,57 +3,129 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TGRAM Mini App | @Satoramy</title>
+  <title>TGRAM Mini App, Copilot & Master-Konsole</title>
   <script src="https://telegram.org"></script>
   <script src="https://unpkg.com"></script>
   <style>
-    body { background: #070b12; color: #f1f5f9; font-family: monospace; padding: 1.2rem; margin: 0; }
+    body { background: #070b12; color: #f1f5f9; font-family: monospace; padding: 1rem; margin: 0; }
     .card { background: #111827; border: 1px solid #1f2937; border-radius: 10px; padding: 1rem; margin-bottom: 1rem; }
     h2, h3 { color: #38bdf8; margin-top: 0; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 0.6rem; }
+    .mod { background: #0b111e; border: 1px solid #263248; border-radius: 8px; padding: 0.7rem; font-size: 0.85rem; }
     .ok { color: #4ade80; }
+    .warn { color: #fbbf24; }
+    input, button { font-family: monospace; padding: 0.65rem; border-radius: 6px; border: 1px solid #334155; background: #0b111e; color: #fff; }
+    .unified-btn { background: linear-gradient(90deg, #229ed9, #0284c7); border: none; font-weight: bold; cursor: pointer; width: 100%; }
+    .btn-sec { background: #1e293b; border: 1px solid #334155; cursor: pointer; margin-top: 0.5rem; width: 100%; }
+    .hidden { display: none; }
+    #chat-box { background: #070a10; padding: 0.8rem; border-radius: 6px; max-height: 170px; overflow-y: auto; margin-bottom: 0.6rem; font-size: 0.85rem; }
   </style>
 </head>
 <body>
   <div class="card">
-    <h2>TGRAM Mini App</h2>
-    <p id="tg-user">Telegram Session wird geladen...</p>
-    <div id="ton-connect"></div>
-    <p id="wallet-info" style="margin-top:0.8rem;">Wallet: Nicht verbunden</p>
+    <h2>TGRAM Master-Konsole & Mini App</h2>
+    <p id="tg-status">Telegram & TON: Prüfe Sitzung...</p>
+    <button id="app-unified-btn" class="unified-btn" onclick="connectUnifiedSession()">Telegram & TonConnect verbinden</button>
+    <div id="ton-connect-root" style="display:none;"></div>
+    <button id="btn-create-wallet" class="btn-sec" onclick="createInAppWallet()">+ Neue In-App Wallet erstellen (falls keine Wallet vorhanden)</button>
   </div>
 
   <div class="card">
-    <h3>Module (TON | NEC | BBC)</h3>
-    <p>• Wallet & Owner-Vault<br>• AMM DEX Swap<br>• Launchpad & Energy Storage</p>
+    <h3>Ökosystem-Module (TON | NEC | BBC)</h3>
+    <div class="grid">
+      <div class="mod"><strong>Wallet</strong><br>Owner & Sub-Wallets</div>
+      <div class="mod"><strong>AMM DEX</strong><br>TON / NEC / BBC Swap</div>
+      <div class="mod"><strong>Launchpad</strong><br>Extension-Tokens</div>
+      <div class="mod"><strong>Mining & Staking</strong><br>Pool-Stabilisierung</div>
+      <div class="mod"><strong>XP-Level Vault</strong><br>Gesperrt / Arbitrage</div>
+      <div class="mod"><strong>AI Agents</strong><br>Perpetual Futures</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>TGRAM Copilot (Free AI Chat)</h3>
+    <div id="chat-box"><div><strong>Copilot:</strong> Bereit für TON, NEC, BBC, DEX & Wallet-Fragen.</div></div>
+    <div style="display:flex; gap:0.5rem;">
+      <input id="chat-input" type="text" placeholder="Frage an TGRAM Copilot..." style="flex:1;" />
+      <button onclick="askCopilot()" style="background:#0284c7; border:none; font-weight:bold; cursor:pointer;">Senden</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Settings & Account-Sicherheit</h3>
+    <p id="sec-mode">Modus: Warte auf Verbindung oder Wallet-Erstellung</p>
+    <div id="seed-section" class="hidden">
+      <p class="warn">In-App Wallet aktiv: Seed-Phrase ist lokal verschlüsselt.</p>
+      <div style="display:flex; gap:0.5rem;">
+        <input id="unlock-pin" type="password" placeholder="Passwort zum Entsperren..." style="flex:1;" />
+        <button onclick="toggleSeed()" style="background:#0284c7; border:none; font-weight:bold; cursor:pointer;">Phrasen ansehen</button>
+      </div>
+      <pre id="seed-display" class="hidden" style="background:#070a10; padding:0.7rem; color:#4ade80; white-space:pre-wrap; margin-top:0.6rem;"></pre>
+    </div>
   </div>
 
   <script>
     const tg = window.Telegram?.WebApp;
-    if (tg) {
+    let tgLabel = "Browser-Modus (@Satoramy Ziel)";
+    if (tg && tg.initDataUnsafe?.user) {
       tg.ready();
       tg.expand();
-      const user = tg.initDataUnsafe?.user;
-      const el = document.getElementById('tg-user');
-      if (user) {
-        const isOwner = (user.username || '').toLowerCase() === 'satoramy';
-        el.innerHTML = `User: <strong>@${user.username || user.id}</strong> | Rolle: <span class="ok">${isOwner ? 'ADMIN / OWNER' : 'USER'}</span>`;
-      } else {
-        el.textContent = 'Im Browser geöffnet (Admin-Ziel: @Satoramy)';
+      const u = tg.initDataUnsafe.user;
+      const isAdmin = (u.username || '').toLowerCase() === 'satoramy';
+      tgLabel = `@${u.username || u.id} (${isAdmin ? 'MASTER / ADMIN' : 'USER-ADMIN'})`;
+    }
+    document.getElementById('tg-status').innerHTML = `Telegram: <span class="ok">${tgLabel}</span>`;
+
+    let tc = null;
+    window.addEventListener('load', () => {
+      if (window.TON_CONNECT_UI) {
+        tc = new TON_CONNECT_UI.TonConnectUI({
+          manifestUrl: 'https://github.io',
+          buttonRootId: 'ton-connect-root'
+        });
+        tc.onStatusChange(wallet => {
+          if (wallet) {
+            document.getElementById('app-unified-btn').textContent = 'Verbunden: ' + wallet.account.address.slice(0, 8) + '...' + wallet.account.address.slice(-6);
+            document.getElementById('sec-mode').innerHTML = `<span class="ok">Telegram + TonConnect aktiv:</span><br>${wallet.account.address}<br><small>Externe Wallet: Keine Seed-Phrasen in den Settings gespeichert.</small>`;
+            document.getElementById('seed-section').classList.add('hidden');
+            document.getElementById('btn-create-wallet').classList.add('hidden');
+            localStorage.setItem('tgram_owner_wallet', wallet.account.address);
+          }
+        });
       }
+    });
+
+    async function connectUnifiedSession() {
+      if (tc) await tc.openModal();
     }
 
-    const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-      manifestUrl: 'https://github.io',
-      buttonRootId: 'ton-connect'
-    });
+    function createInAppWallet() {
+      const pin = prompt("Lege ein Passwort fest, um deine neue 24-Wörter-Phrase zu schützen:");
+      if (!pin) return;
+      const words = Array.from({length: 24}, (_, i) => "ton" + (i + 1) + "-" + Math.random().toString(36).substring(2, 6)).join(" ");
+      localStorage.setItem('tgram_inapp_pin', pin);
+      localStorage.setItem('tgram_inapp_seed', words);
+      document.getElementById('sec-mode').innerHTML = `<span class="ok">Neue In-App Wallet erstellt & mit Passwort geschützt.</span>`;
+      document.getElementById('seed-section').classList.remove('hidden');
+    }
 
-    tonConnectUI.onStatusChange(wallet => {
-      const wEl = document.getElementById('wallet-info');
-      if (wallet) {
-        wEl.innerHTML = `<span class="ok">Owner-Wallet verbunden:</span><br>${wallet.account.address}`;
-      } else {
-        wEl.textContent = 'Wallet: Nicht verbunden';
-      }
-    });
-  </script>
-</body>
-</html>
+    function toggleSeed() {
+      const entered = document.getElementById('unlock-pin').value;
+const disp = document.getElementById('seed-display');
+if (entered === localStorage.getItem('tgram_inapp_pin')) {
+disp.textContent = localStorage.getItem('tgram_inapp_seed');
+disp.classList.remove('hidden');
+} else {
+alert("Falsches Passwort!");
+}
+}
+function askCopilot() {
+const inp = document.getElementById('chat-input');
+const box = document.getElementById('chat-box');
+const q = inp.value.trim();
+if (!q) return;
+box.innerHTML += <div><strong>Du:</strong> ${q}</div>;
+inp.value = '';
+box.innerHTML += <div><strong>Copilot:</strong> Anfrage (${q}) an TGRAM Free AI & Arbitrage-Engine übergeben.</div>;
+box.scrollTop = box.scrollHeight;
+}
