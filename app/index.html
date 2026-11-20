@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TGRAM App | Wallet, DEX & Launchpad</title>
+  <style>
+    body { background: #070b12; color: #f1f5f9; font-family: monospace; padding: 1.5rem; max-width: 860px; margin: auto; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+    .box { background: #111827; border: 1px solid #1f2937; border-radius: 10px; padding: 1.25rem; }
+    h1, h3 { color: #38bdf8; margin-top: 0; }
+    a { color: #4ade80; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <h1>TGRAM App-Zentrale</h1>
+  <p>Aktive Token-Pools: <strong>TON | NEC | BBC</strong></p>
+  <div class="grid">
+    <div class="box"><h3>Wallet & Session</h3><p>TonConnect Owner-Status & Guthaben-Übersicht.</p></div>
+    <div class="box"><h3>AMM DEX</h3><p>Direkter On-Chain-Swap zwischen TON, NEC und BBC.</p></div>
+    <div class="box"><h3>Launchpad</h3><p>Token-Verteilung & Fairlaunch-Contracts.</p></div>
+    <div class="box"><h3>Energy Storage</h3><p>Gasless c4-Cell & TON-Storage Bag-ID Verwaltung.</p></div>
+  </div>
+  <p style="margin-top:2rem;"><a href="../index.html">&larr; Zurück zur Landing Page & Tonkeeper Connect</a></p>
+  <script type="module">
+    import { initAppModules } from './app.js';
+    initAppModules();
+  </script>
+</body>
+</html>
