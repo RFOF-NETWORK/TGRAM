@@ -1,0 +1,20 @@
+name: Selective Auto-Merge (AXF & SAI)
+on:
+  pull_request:
+    types: [labeled, opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  enable-merge:
+    runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.labels.*.name, 'automerge-axf') || contains(github.event.pull_request.labels.*.name, 'automerge-sai')
+    steps:
+      - name: Enable Auto-Merge for AXF/SAI
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Berechtigtes Label gefunden. Aktiviere Auto-Merge..."
+          gh pr merge ${{ github.event.pull_request.number }} --auto --squash --repo ${{ github.repository }}
