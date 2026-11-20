@@ -1,8 +1,4 @@
-import os
-import subprocess
-import urllib.request
-import urllib.error
-import json
+import os, urllib.request, urllib.parse, json
 
 P = chr(104) + "ttps://"
 
@@ -23,34 +19,14 @@ def ask_free_copilot(prompt_text):
         req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
         with urllib.request.urlopen(req, timeout=15) as resp:
             data = json.loads(resp.read().decode())
-            return data["candidates"]["content"]["parts"]["text"]
+            return data["candidates"][0]["content"]["parts"][0]["text"]
 
-    token = os.getenv("GITHUB_MODELS_TOKEN", "").strip() or subprocess.getoutput("gh auth token").strip()
-    url = P + "models.github.ai/inference/chat/completions"
-    payload = json.dumps({
-        "model": "openai/gpt-4o-mini",
-        "messages": [
-            {"role": "system", "content": "Du bist der TGRAM Copilot für TON, NEC, BBC, DEX, Launchpad und Wallet-Sicherheit."},
-            {"role": "user", "content": prompt_text}
-        ]
-    }).encode("utf-8")
-
-    req = urllib.request.Request(url, data=payload, headers={
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"
-    })
-    try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            raw = resp.read().decode()
-            if not raw.strip():
-                return f"Leere Antwort (HTTP {resp.status}) – bitte GITHUB_MODELS_TOKEN oder GEMINI_API_KEY in .env setzen."
-            data = json.loads(raw)
-            return data["choices"]["message"]["content"]
-    except urllib.error.HTTPError as e:
-        return f"HTTP {e.code}: {e.read().decode(errors='ignore')}"
-    except Exception as e:
-        return f"TGRAM Copilot Hinweis: {e}"
+    q = urllib.parse.quote("Du bist TGRAM Copilot für TON, NEC und BBC. " + prompt_text)
+    url = P + f"text.pollinations.ai/{q}"
+    req = urllib.request.Request(url, headers={"User-Agent": "TGRAM-Copilot/1.0"})
+    with urllib.request.urlopen(req, timeout=20) as resp:
+        return resp.read().decode("utf-8").strip()
 
 if __name__ == "__main__":
     load_env(os.path.expanduser("~/storage/shared/InterBOxSpiderWeb/mein-ton-token/TGRAM/.env"))
-    print("TGRAM Free Copilot Test:", ask_free_copilot("Bestätige kurz, dass TGRAM Copilot für TON, NEC und BBC bereit ist."))
+    print("TGRAM Free Copilot Antwort:", ask_free_copilot("Bestätige kurz auf Deutsch, dass TGRAM Copilot für TON, NEC und BBC aktiv ist."))
