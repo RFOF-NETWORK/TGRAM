@@ -26,7 +26,7 @@
     <p id="wallet-banner" class="ok"></p>
     <button id="app-unified-btn">Telegram & TonConnect synchronisieren</button>
     <div id="ton-connect-root" style="display:none;"></div>
-    <button id="btn-create-wallet" class="btn-sec" onclick="createInAppWallet()">+ Neue In-App Wallet erstellen (falls keine vorhanden)</button>
+    <button id="btn-create-wallet" class="btn-sec" onclick="createInAppWallet()">+ Neue In-App Wallet erstellen</button>
   </div>
 
   <div class="card">
@@ -79,7 +79,7 @@
         const res = await fetch(url);
         if (!res.ok) throw new Error("HTTP " + res.status);
         const data = await res.json();
-        const acc = (data.accounts && data.accounts) || {};
+        const acc = (data.accounts && data.accounts[0]) || {};
         const ton = (Number(acc.balance || 0) / 1e9).toFixed(4);
         document.getElementById("wallet-banner").textContent = "OWNER AKTIV: " + addr.slice(0,8) + "..." + addr.slice(-6) + " (" + ton + " TON | " + (acc.status || "active") + ")";
       } catch (e) {
