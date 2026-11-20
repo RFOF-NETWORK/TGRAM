@@ -1,12 +1,13 @@
 import os, urllib.request, json
 
-P = chr(104) + "ttps://"
+H = chr(104) + "ttps:" + "//"
+PATH = "/api/v2/getAddressInformation?address="
 
 def check_owner_and_agents(owner_address):
-    if not owner_address or owner_address == "DEINE_TON_ADRESSE":
-        print("HINWEIS: Bitte setze deine echte TON-Adresse in TGRAM/.env (OWNER_WALLET_ADDRESS=UQ...)")
+    if not owner_address or owner_address.startswith("DEINE_"):
+        print("HINWEIS: Bitte setze deine echte TON-Adresse (UQ... oder EQ...) in TGRAM/.env")
         return
-    url = P + f"://toncenter.com{owner_address}"
+    url = H + "toncenter.com" + PATH + owner_address
     try:
         with urllib.request.urlopen(url, timeout=10) as resp:
             data = json.loads(resp.read().decode())
