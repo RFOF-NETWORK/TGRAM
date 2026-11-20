@@ -3,28 +3,57 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TGRAM App | Wallet, DEX & Launchpad</title>
+  <title>TGRAM Mini App | @Satoramy</title>
+  <script src="https://telegram.org"></script>
+  <script src="https://unpkg.com"></script>
   <style>
-    body { background: #070b12; color: #f1f5f9; font-family: monospace; padding: 1.5rem; max-width: 860px; margin: auto; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-top: 1.5rem; }
-    .box { background: #111827; border: 1px solid #1f2937; border-radius: 10px; padding: 1.25rem; }
-    h1, h3 { color: #38bdf8; margin-top: 0; }
-    a { color: #4ade80; text-decoration: none; }
+    body { background: #070b12; color: #f1f5f9; font-family: monospace; padding: 1.2rem; margin: 0; }
+    .card { background: #111827; border: 1px solid #1f2937; border-radius: 10px; padding: 1rem; margin-bottom: 1rem; }
+    h2, h3 { color: #38bdf8; margin-top: 0; }
+    .ok { color: #4ade80; }
   </style>
 </head>
 <body>
-  <h1>TGRAM App-Zentrale</h1>
-  <p>Aktive Token-Pools: <strong>TON | NEC | BBC</strong></p>
-  <div class="grid">
-    <div class="box"><h3>Wallet & Session</h3><p>TonConnect Owner-Status & Guthaben-Übersicht.</p></div>
-    <div class="box"><h3>AMM DEX</h3><p>Direkter On-Chain-Swap zwischen TON, NEC und BBC.</p></div>
-    <div class="box"><h3>Launchpad</h3><p>Token-Verteilung & Fairlaunch-Contracts.</p></div>
-    <div class="box"><h3>Energy Storage</h3><p>Gasless c4-Cell & TON-Storage Bag-ID Verwaltung.</p></div>
+  <div class="card">
+    <h2>TGRAM Mini App</h2>
+    <p id="tg-user">Telegram Session wird geladen...</p>
+    <div id="ton-connect"></div>
+    <p id="wallet-info" style="margin-top:0.8rem;">Wallet: Nicht verbunden</p>
   </div>
-  <p style="margin-top:2rem;"><a href="../index.html">&larr; Zurück zur Landing Page & Tonkeeper Connect</a></p>
-  <script type="module">
-    import { initAppModules } from './app.js';
-    initAppModules();
+
+  <div class="card">
+    <h3>Module (TON | NEC | BBC)</h3>
+    <p>• Wallet & Owner-Vault<br>• AMM DEX Swap<br>• Launchpad & Energy Storage</p>
+  </div>
+
+  <script>
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      const user = tg.initDataUnsafe?.user;
+      const el = document.getElementById('tg-user');
+      if (user) {
+        const isOwner = (user.username || '').toLowerCase() === 'satoramy';
+        el.innerHTML = `User: <strong>@${user.username || user.id}</strong> | Rolle: <span class="ok">${isOwner ? 'ADMIN / OWNER' : 'USER'}</span>`;
+      } else {
+        el.textContent = 'Im Browser geöffnet (Admin-Ziel: @Satoramy)';
+      }
+    }
+
+    const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+      manifestUrl: 'https://github.io',
+      buttonRootId: 'ton-connect'
+    });
+
+    tonConnectUI.onStatusChange(wallet => {
+      const wEl = document.getElementById('wallet-info');
+      if (wallet) {
+        wEl.innerHTML = `<span class="ok">Owner-Wallet verbunden:</span><br>${wallet.account.address}`;
+      } else {
+        wEl.textContent = 'Wallet: Nicht verbunden';
+      }
+    });
   </script>
 </body>
 </html>
