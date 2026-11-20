@@ -14,7 +14,7 @@ def load_env(path):
 
 def ask_free_copilot(prompt_text):
     gh_token = subprocess.getoutput("gh auth token").strip()
-    url = "https://azure.com"
+    url = "https://github.ai"
     payload = json.dumps({
         "model": "gpt-4o-mini",
         "messages": [
@@ -29,7 +29,7 @@ def ask_free_copilot(prompt_text):
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
             data = json.loads(resp.read().decode())
-            return data["choices"]["message"]["content"]
+            return data["choices"][0]["message"]["content"]
     except Exception as e:
         return f"TGRAM Copilot Hinweis: {e}"
 
