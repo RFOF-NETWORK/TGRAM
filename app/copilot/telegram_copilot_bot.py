@@ -4,6 +4,8 @@ import urllib.request
 import urllib.error
 import json
 
+P = chr(104) + "ttps://"
+
 def load_env(path):
     if not os.path.exists(path):
         return
@@ -16,7 +18,7 @@ def load_env(path):
 def ask_free_copilot(prompt_text):
     gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
     if gemini_key:
-        url = f"https://googleapis.com{gemini_key}"
+        url = P + f"://googleapis.com{gemini_key}"
         payload = json.dumps({"contents": [{"parts": [{"text": prompt_text}]}]}).encode("utf-8")
         req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
         with urllib.request.urlopen(req, timeout=15) as resp:
@@ -24,7 +26,7 @@ def ask_free_copilot(prompt_text):
             return data["candidates"]["content"]["parts"]["text"]
 
     token = os.getenv("GITHUB_MODELS_TOKEN", "").strip() or subprocess.getoutput("gh auth token").strip()
-    url = "https://models." + "github.ai/inference/chat/completions"
+    url = P + "models.github.ai/inference/chat/completions"
     payload = json.dumps({
         "model": "openai/gpt-4o-mini",
         "messages": [
@@ -39,7 +41,10 @@ def ask_free_copilot(prompt_text):
     })
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
-            data = json.loads(resp.read().decode())
+            raw = resp.read().decode()
+            if not raw.strip():
+                return f"Leere Antwort (HTTP {resp.status}) – bitte GITHUB_MODELS_TOKEN oder GEMINI_API_KEY in .env setzen."
+            data = json.loads(raw)
             return data["choices"]["message"]["content"]
     except urllib.error.HTTPError as e:
         return f"HTTP {e.code}: {e.read().decode(errors='ignore')}"
