@@ -1,6 +1,5 @@
 tolk 0.6
 
-// Dezentraler AMM DEX-Pool & Fairlaunch Contract (APIless On-Chain)
 const OP_SWAP = 0x25938561;
 const OP_BUY_LAUNCHPAD = 0x4c41554e;
 

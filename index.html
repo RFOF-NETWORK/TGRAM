@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TGRAM | InterBOxSpiderWeb & RFOF-NETWORK</title>
+  <script src="https://unpkg.com"></script>
+  <style>
+    body { background: #0b0f17; color: #e2e8f0; font-family: monospace; padding: 2rem; max-width: 860px; margin: auto; }
+    .card { background: #131a29; border: 1px solid #263248; border-radius: 10px; padding: 1.5rem; margin-bottom: 1.5rem; }
+    h1, h2 { color: #38bdf8; margin-top: 0; }
+    pre { background: #070a10; padding: 1rem; border-radius: 6px; overflow-x: auto; color: #4ade80; }
+    .badge { display: inline-block; background: #1e293b; padding: 0.25rem 0.6rem; border-radius: 4px; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>TGRAM — Hybrid Blockchain & Cloud Gateway</h1>
+    <p><span class="badge">Master: InterBOxSpiderWeb</span> <span class="badge">Admin: RFOF-NETWORK</span> <span class="badge">Ecosystem: TGRAM</span></p>
+    <p>Verbinde deine Tonkeeper-Wallet, um deine Owner-Sitzung kryptografisch (TonProof) über den geschützten Cloud-Proxy zu bestätigen:</p>
+    <div id="ton-connect"></div>
+    <p id="wallet-status" style="margin-top:1rem; color:#94a3b8;">Status: Nicht verbunden</p>
+  </div>
+
+  <div class="card">
+    <h2>CLI & Termux Quick-Connect (curl / npx)</h2>
+    <pre>curl -sL https://github.io/tonconnect-manifest.json</pre>
+    <pre>git clone --depth 1 https://github.com</pre>
+  </div>
+
+  <script>
+    const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+      manifestUrl: 'https://github.io/tonconnect-manifest.json',
+      buttonRootId: 'ton-connect'
+    });
+
+    tonConnectUI.onStatusChange(wallet => {
+      const el = document.getElementById('wallet-status');
+      if (wallet) {
+        el.style.color = '#4ade80';
+        el.textContent = 'Owner-Wallet verbunden: ' + wallet.account.address;
+      } else {
+        el.style.color = '#94a3b8';
+        el.textContent = 'Status: Nicht verbunden';
+      }
+    });
+  </script>
+</body>
+</html>
