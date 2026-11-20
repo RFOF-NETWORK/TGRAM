@@ -1,0 +1,10 @@
+{
+  "architecture": "APIless-Direct-OnChain",
+  "blockchain": "TON",
+  "contracts": {
+    "token": { "standard": "TEP-74 Jetton", "compiler": "acton / tolk" },
+    "dex": { "type": "AMM Liquidity Pool", "settlement": "on-chain-boc" },
+    "launchpad": { "type": "Fairlaunch & Vesting Contract", "settlement": "on-chain-boc" },
+    "wallet": { "standard": "Wallet V4R2 / W5 + TonConnect 2.0" }
+  }
+}
