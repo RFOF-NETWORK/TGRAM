@@ -1,8 +1,9 @@
-name: Selective Auto-Merge (AXF & SAI)
+name: Selective Auto-Merge (AXF & SAI only)
 on:
   pull_request:
     types: [labeled, opened, synchronize, reopened]
 
+# HIER BITTET DER WORKFLOW UM SCHREIBRECHTE (Only what is needed)
 permissions:
   contents: write
   pull-requests: write
@@ -10,11 +11,13 @@ permissions:
 jobs:
   enable-merge:
     runs-on: ubuntu-latest
+    # Läuft NUR, wenn explizit ein AXF oder SAI Label gesetzt ist
     if: contains(github.event.pull_request.labels.*.name, 'automerge-axf') || contains(github.event.pull_request.labels.*.name, 'automerge-sai')
     steps:
-      - name: Enable Auto-Merge for AXF/SAI
+      - name: Verify Label & Enable Auto-Merge
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Berechtigtes Label gefunden. Aktiviere Auto-Merge..."
+          echo "AXF/SAI Label gefunden. Prüfe Berechtigungen..."
+          # Der eigentliche Merge-Befehl. GitHub prüft jetzt: Hat dieser Job das Recht dazu?
           gh pr merge ${{ github.event.pull_request.number }} --auto --squash --repo ${{ github.repository }}
