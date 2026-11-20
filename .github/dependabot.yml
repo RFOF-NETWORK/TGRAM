@@ -3,7 +3,9 @@ updates:
   - package-ecosystem: "pip"
     directory: "/"
     schedule: { interval: "weekly" }
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule: { interval: "weekly" }
+    # Dependabot darf KEINE eigenen Changes pushen, nur PRs öffnen
+    rebase-strategy: "disabled" 
