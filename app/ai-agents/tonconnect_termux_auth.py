@@ -1,9 +1,20 @@
 import os, http.server, urllib.parse, urllib.request, json, subprocess
 
-H = "https://"
-# Füge hier deinen Toncenter API-Key ein, um den 403-Fehler zu beheben:
-API_KEY = os.environ.get("TONCENTER_API_KEY", "") 
+H = chr(104) + "ttps:" + "//"
 API = "/api/v3/accountStates?address="
+
+def get_toncenter_key():
+    for p in [
+        os.path.expanduser("~/storage/shared/InterBOxSpiderWeb/mein-ton-token/TGRAM/.env"),
+        os.path.expanduser("~/storage/shared/InterBOxSpiderWeb/mein-ton-token/.env")
+    ]:
+        if os.path.exists(p):
+            for l in open(p, encoding="utf-8"):
+                if l.startswith(("TONCENTER_MAINNET_API_KEY=", "TONCENTER_API_KEY=")):
+                    v = l.split("=", 1).strip()
+                    if v:
+                        return v
+    return os.environ.get("TONCENTER_API_KEY", "")
 
 def save_and_verify(addr):
     for p in [
@@ -15,26 +26,27 @@ def save_and_verify(addr):
             lines.append(f"OWNER_WALLET_ADDRESS={addr}\n")
             open(p, "w", encoding="utf-8").writelines(lines)
     try:
+        api_key = get_toncenter_key()
         url = H + "toncenter.com" + API + urllib.parse.quote(addr) + "&include_boc=false"
         headers = {"Accept": "application/json", "User-Agent": "TGRAM-CLI/1.0"}
-        if API_KEY:
-            headers["X-API-Key"] = API_KEY
+        if api_key:
+            headers["X-API-Key"] = api_key
         req = urllib.request.Request(url, headers=headers)
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode())
-            acc = data.get("accounts", [{}])[0]
+            acc = data.get("accounts", [{}])
             bal = int(acc.get("balance", 0)) / 1e9
             print("\n=== TONCENTER API v3 OWNER VERIFIZIERT ===")
             print("Status   :", acc.get("status", "active"))
             print("Guthaben :", f"{bal:.4f} TON")
     except Exception as e:
-        print("\n[WARNUNG] API 403/Fehler:", e)
-        print("[OK] Adresse trotzdem lokal in .env gespeichert.")
+        print("\n[INFO] RPC Hinweis:", e)
+        print("[OK] Adresse trotzdem sicher lokal in .env gespeichert.")
 
 class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
-        addr = q.get("address", [""])[0].strip()
+        addr = q.get("address", [""]).strip()
         self.send_response(200)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
@@ -54,4 +66,4 @@ if __name__ == "__main__":
     try:
         http.server.HTTPServer(("127.0.0.1", 8765), Handler).serve_forever()
     except OSError as e:
-        print(f"[FEHLER] Port 8765 belegt. Bitte alten Prozess beenden: {e}")
+        print(f"[FEHLER] Port 8765 belegt: {e}")

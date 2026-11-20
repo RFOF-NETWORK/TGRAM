@@ -1,19 +1,32 @@
 name: TGRAM Autonomous 24/7 CI/CD
+
 on:
-  push: { branches: [main] }
-  schedule: [{ cron: "*/15 * * * *" }]
+  push:
+    branches: [ main ]
+  schedule:
+    - cron: "*/15 * * * *"
   workflow_dispatch:
+
 jobs:
   cloud-orchestrator:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout TGRAM Repository
+      - name: Checkout TGRAM
         uses: actions/checkout@v4
+
       - name: Setup Python
         uses: actions/setup-python@v5
-        with: { python-version: "3.11" }
-      - name: Execute Autonomous TGRAM Heartbeat
-        run: |
-          echo "24/7 Cloud Check aktiv."
-          python3 -c "print(\"TGRAM System läuft in der Cloud\")"
+        with:
+          python-version: "3.11"
 
+      - name: Sync External TON CLI Tools
+        run: |
+          mkdir -p /tmp/tgram-tools
+          GH="https://github.com"
+          git clone --depth 1 "${GH}/ton-community/ton-ai-agent.git" /tmp/tgram-tools/ton-ai-agent || true
+          ls -la /tmp/tgram-tools
+
+      - name: Run 24/7 TGRAM Heartbeat & Copilot
+        run: |
+          chmod +x tgram-cli.sh
+          ./tgram-cli.sh
