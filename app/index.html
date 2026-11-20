@@ -3,67 +3,102 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TGRAM Mini App & Master-Konsole</title>
+  <title>TGRAM - Hybrid Blockchain Gateway</title>
   <style>
-    body { background: #070b12; color: #f1f5f9; font-family: monospace; padding: 1rem; margin: 0; }
-    .card { background: #111827; border: 1px solid #1f2937; border-radius: 10px; padding: 1rem; margin-bottom: 1rem; }
-    h2, h3 { color: #38bdf8; margin-top: 0; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 0.6rem; }
-    .mod { background: #0b111e; border: 1px solid #263248; border-radius: 8px; padding: 0.7rem; font-size: 0.85rem; }
-    .ok { color: #4ade80; }
-    .warn { color: #fbbf24; }
-    input, button { font-family: monospace; padding: 0.65rem; border-radius: 6px; border: 1px solid #334155; background: #0b111e; color: #fff; }
-    button { background: #0284c7; border: none; cursor: pointer; width: 100%; font-weight: bold; }
-    .btn-sec { background: #1e293b; border: 1px solid #334155; margin-top: 0.5rem; }
-    .hidden { display: none; }
-    #chat-box { background: #070a10; padding: 0.8rem; border-radius: 6px; max-height: 160px; overflow-y: auto; margin-bottom: 0.6rem; font-size: 0.85rem; }
+    :root { --bg: #070b12; --card: #111827; --border: #1f2937; --primary: #38bdf8; --text: #f1f5f9; --ok: #4ade80; --warn: #fbbf24; }
+    body { background: var(--bg); color: var(--text); font-family: monospace; padding: 1rem; margin: 0; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; margin-bottom: 1rem; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+    h2, h3 { color: var(--primary); margin-top: 0; font-weight: 600; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.8rem; }
+    .mod { background: #0b111e; border: 1px solid var(--border); border-radius: 8px; padding: 0.8rem; font-size: 0.85rem; text-align: center; transition: 0.2s; }
+    .mod:hover { border-color: var(--primary); transform: translateY(-2px); }
+    .mod strong { display: block; margin-bottom: 0.3rem; color: var(--primary); }
+    .btn { background: linear-gradient(90deg, #229ed9, #0284c7); border: none; color: white; padding: 0.8rem; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 0.5rem; font-family: monospace; }
+    .btn:active { opacity: 0.8; }
+    .input-group { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
+    input, select { width: 100%; padding: 0.8rem; border-radius: 8px; border: 1px solid var(--border); background: #0b111e; color: white; font-family: monospace; box-sizing: border-box; }
+    .token-balance { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 0.3rem; color: #94a3b8; }
+    .ok { color: var(--ok); }
+    .warn { color: var(--warn); }
+    .hidden { display: none !important; }
+    #chat-box { background: #070a10; padding: 0.8rem; border-radius: 8px; max-height: 200px; overflow-y: auto; margin-bottom: 0.6rem; font-size: 0.85rem; border: 1px solid var(--border); }
+    .tab-buttons { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    .tab-btn { flex: 1; background: #1e293b; border: 1px solid var(--border); color: white; padding: 0.6rem; border-radius: 6px; cursor: pointer; }
+    .tab-btn.active { background: var(--primary); color: black; border-color: var(--primary); font-weight: bold; }
   </style>
 </head>
 <body>
   <div class="card">
-    <h2>TGRAM Master-Konsole & Mini App</h2>
+    <h2>🌐 TGRAM Gateway</h2>
     <p id="tg-status">Prüfe Sitzung...</p>
-    <p id="wallet-banner" class="ok"></p>
-    <button id="app-unified-btn">Telegram & TonConnect synchronisieren</button>
+    <p id="wallet-banner" class="ok" style="font-weight: bold;"></p>
+    <button id="app-unified-btn" class="btn">Telegram & Wallet synchronisieren</button>
     <div id="ton-connect-root" style="display:none;"></div>
-    <button id="btn-create-wallet" class="btn-sec" onclick="createInAppWallet()">+ Neue In-App Wallet erstellen</button>
   </div>
 
-  <div class="card">
-    <h3>Ökosystem-Module (TON | NEC | BBC)</h3>
-    <div class="grid">
-      <div class="mod"><strong>Wallet</strong><br>Owner & Sub-Wallets</div>
-      <div class="mod"><strong>AMM DEX</strong><br>TON / NEC / BBC Swap</div>
-      <div class="mod"><strong>Launchpad</strong><br>Extension-Tokens</div>
-      <div class="mod"><strong>Mining & Staking</strong><br>Pool-Stabilisierung</div>
-      <div class="mod"><strong>XP-Level Vault</strong><br>Gesperrt / Arbitrage</div>
-      <div class="mod"><strong>AI Agents</strong><br>Perpetual Futures</div>
+  <div class="card" id="dashboard" style="opacity: 0.5; pointer-events: none;">
+    <h3>💱 Währungssystem & Ökosystem</h3>
+    <div class="tab-buttons">
+      <button class="tab-btn active" onclick="switchTab('swap')">Swap</button>
+      <button class="tab-btn" onclick="switchTab('staking')">Staking</button>
+      <button class="tab-btn" onclick="switchTab('vault')">XP Vault</button>
     </div>
-  </div>
 
-  <div class="card">
-    <h3>TGRAM Copilot (Serverless Free AI)</h3>
-    <div id="chat-box"><div><strong>Copilot:</strong> Serverless Proxy aktiv. Bereit für TON, NEC & BBC.</div></div>
-    <div style="display:flex; gap:0.5rem;">
-      <input id="chat-input" type="text" placeholder="Frage an TGRAM Copilot..." style="flex:1;" />
-      <button onclick="askCopilot()" style="width:auto;">Senden</button>
-    </div>
-  </div>
-
-  <div class="card">
-    <h3>Settings & Account-Sicherheit</h3>
-    <p id="sec-mode">Modus: Prüfe gespeicherte Sitzung...</p>
-    <div id="seed-section" class="hidden">
-      <p class="warn">In-App Wallet aktiv: Seed-Phrase ist lokal verschlüsselt.</p>
-      <div style="display:flex; gap:0.5rem;">
-        <input id="unlock-pin" type="password" placeholder="Passwort zum Entsperren..." style="flex:1;" />
-        <button onclick="toggleSeed()" style="width:auto;">Phrasen ansehen</button>
+    <!-- SWAP MODUL -->
+    <div id="tab-swap">
+      <div class="input-group">
+        <select id="swap-from">
+          <option value="TON">TON</option>
+          <option value="NEC">NEC</option>
+          <option value="BBC">BBC</option>
+          <option value="AXF">AXF</option>
+        </select>
+        <select id="swap-to">
+          <option value="NEC">NEC</option>
+          <option value="BBC">BBC</option>
+          <option value="AXF">AXF</option>
+          <option value="TON">TON</option>
+        </select>
       </div>
-      <pre id="seed-display" class="hidden" style="background:#070a10; padding:0.7rem; color:#4ade80; white-space:pre-wrap; margin-top:0.6rem;"></pre>
+      <input type="number" id="swap-amount" placeholder="Betrag eingeben..." />
+      <button class="btn" onclick="executeSwap()">Token tauschen</button>
+    </div>
+
+    <!-- STAKING MODUL -->
+    <div id="tab-staking" class="hidden">
+      <div class="token-balance"><span>Verfügbar (NEC):</span><span id="stake-bal">0.00</span></div>
+      <input type="number" id="stake-amount" placeholder="NEC Menge zum Staken..." />
+      <div class="input-group">
+        <select id="stake-pool">
+          <option value="30">30 Tage (5% APY)</option>
+          <option value="90">90 Tage (12% APY)</option>
+          <option value="365">365 Tage (25% APY)</option>
+        </select>
+      </div>
+      <button class="btn" onclick="executeStake()">Staken & Pool stabilisieren</button>
+    </div>
+
+    <!-- VAULT MODUL -->
+    <div id="tab-vault" class="hidden">
+      <p class="warn" style="font-size: 0.85rem;">Gesperrte Vermögenswerte für Arbitrage (AXF):</p>
+      <div class="token-balance"><span>XP Level:</span><span id="xp-level" class="ok">1</span></div>
+      <div class="token-balance"><span>Gesperrte AXF:</span><span id="vault-bal">0.00</span></div>
+      <button class="btn" onclick="claimVault()">Tägliche XP & Rendite abholen</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>🤖 TGRAM Copilot</h3>
+    <div id="chat-box"><div><strong>Copilot:</strong> Serverless Proxy aktiv. Frag mich nach TON, NEC, BBC oder AXF.</div></div>
+    <div style="display:flex; gap:0.5rem;">
+      <input id="chat-input" type="text" placeholder="Deine Frage..." style="flex:1;" />
+      <button class="btn" style="width:auto; margin:0;" onclick="askCopilot()">Senden</button>
     </div>
   </div>
 
   <script>
+    let userAddress = null;
+
     function loadScript(src) {
       return new Promise(r => {
         const s = document.createElement("script");
@@ -72,27 +107,38 @@
       });
     }
 
-    async function fetchAccountStateViaProxy(addr) {
+    // UI Logik
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('[id^="tab-"]').forEach(d => d.classList.add('hidden'));
+      event.target.classList.add('active');
+      document.getElementById('tab-' + tabId).classList.remove('hidden');
+    }
+
+    async function fetchAccountState(addr) {
       try {
-        const p = "https://";
-        const url = p + "toncenter.com/api/v3/accountStates?address=" + encodeURIComponent(addr) + "&include_boc=false";
+        const url = "https://toncenter.com/api/v3/accountStates?address=" + encodeURIComponent(addr) + "&include_boc=false";
         const res = await fetch(url);
         if (!res.ok) throw new Error("HTTP " + res.status);
         const data = await res.json();
         const acc = (data.accounts && data.accounts[0]) || {};
         const ton = (Number(acc.balance || 0) / 1e9).toFixed(4);
-        document.getElementById("wallet-banner").textContent = "OWNER AKTIV: " + addr.slice(0,8) + "..." + addr.slice(-6) + " (" + ton + " TON | " + (acc.status || "active") + ")";
+        document.getElementById("wallet-banner").textContent = "OWNER: " + addr.slice(0,8) + "..." + addr.slice(-6) + " | " + ton + " TON";
       } catch (e) {
-        document.getElementById("wallet-banner").textContent = "OWNER AKTIV: " + addr.slice(0,10) + "... (Verifiziert)";
+        document.getElementById("wallet-banner").textContent = "OWNER: " + addr.slice(0,10) + "... (Verifiziert)";
       }
     }
 
     function applyConnectedState(addr) {
+      userAddress = addr;
       document.getElementById("app-unified-btn").textContent = "Sitzung aktiv (" + addr.slice(0, 8) + ")";
-      document.getElementById("sec-mode").innerHTML = `<span class="ok">Master/Admin Login verifiziert:</span><br>${addr}<br><small>Serverless APIfull-Tunnel aktiv (24/7 Cloud-Betrieb ohne Termux).</small>`;
-      document.getElementById("seed-section").classList.add("hidden");
-      document.getElementById("btn-create-wallet").classList.add("hidden");
-      fetchAccountStateViaProxy(addr);
+      document.getElementById("dashboard").style.opacity = "1";
+      document.getElementById("dashboard").style.pointerEvents = "auto";
+      fetchAccountState(addr);
+      
+      // Dummy-Daten für UI laden (Später via Cloudflare Bridge)
+      document.getElementById("stake-bal").textContent = "1,250.00";
+      document.getElementById("vault-bal").textContent = "4,200.00";
     }
 
     (async () => {
@@ -107,7 +153,7 @@
         const isAdmin = (u.username || "").toLowerCase() === "satoramy";
         document.getElementById("tg-status").innerHTML = `Telegram: <span class="ok">@${u.username || u.id}</span> (${isAdmin ? "MASTER / ADMIN" : "USER"})`;
       } else {
-        document.getElementById("tg-status").innerHTML = `Telegram: <span class="ok">Web & Mini-App Session (@Satoramy)</span>`;
+        document.getElementById("tg-status").innerHTML = `Telegram: <span class="ok">Web & Mini-App Session</span>`;
       }
 
       const savedWallet = localStorage.getItem("tgram_owner_wallet");
@@ -131,29 +177,30 @@
       }
     })();
 
-    function createInAppWallet() {
-      const pin = prompt("Lege ein Passwort fest, um deine neue Phrase zu schützen:");
-      if (!pin) return;
-      const bytes = new Uint8Array(16);
-      crypto.getRandomValues(bytes);
-      const hex = Array.from(bytes, b => b.toString(16).padStart(2, "0")).join(" ");
-      localStorage.setItem("tgram_inapp_pin", pin);
-      localStorage.setItem("tgram_inapp_seed", hex);
-      document.getElementById("sec-mode").innerHTML = `<span class="ok">Neue lokale Wallet erstellt & mit Passwort geschützt.</span>`;
-      document.getElementById("seed-section").classList.remove("hidden");
+    // --- INTERAKTIVE FUNKTIONEN (Platzhalter für Smart-Contract Calls) ---
+    function executeSwap() {
+      const from = document.getElementById('swap-from').value;
+      const to = document.getElementById('swap-to').value;
+      const amt = document.getElementById('swap-amount').value;
+      if(!amt || amt <= 0) return alert("Bitte Betrag eingeben.");
+      alert(`[DEX] Simulierter Swap: ${amt} ${from} -> ${to}. (Wird später via Cloudflare-Proxy an den Smart Contract gesendet)`);
+      document.getElementById('swap-amount').value = '';
     }
 
-    function toggleSeed() {
-      const entered = document.getElementById("unlock-pin").value;
-      const disp = document.getElementById("seed-display");
-      if (entered === localStorage.getItem("tgram_inapp_pin")) {
-        disp.textContent = localStorage.getItem("tgram_inapp_seed");
-        disp.classList.remove("hidden");
-      } else {
-        alert("Falsches Passwort!");
-      }
+    function executeStake() {
+      const amt = document.getElementById('stake-amount').value;
+      if(!amt || amt <= 0) return alert("Bitte NEC Betrag eingeben.");
+      alert(`[STAKING] ${amt} NEC erfolgreich in den Pool eingezahlt.`);
+      document.getElementById('stake-amount').value = '';
     }
 
+    function claimVault() {
+      alert(`[XP-VAULT] 50 AXF und 10 XP erfolgreich abgeholt!`);
+      let lvl = parseInt(document.getElementById('xp-level').textContent);
+      document.getElementById('xp-level').textContent = lvl + 1;
+    }
+
+    // --- COPILOT ---
     async function askCopilot() {
       const inp = document.getElementById("chat-input");
       const box = document.getElementById("chat-box");
@@ -163,11 +210,11 @@
       inp.value = "";
       try {
         const p = "https://";
-        const res = await fetch(p + "text.pollinations.ai/" + encodeURIComponent("Du bist TGRAM Copilot für TON, NEC und BBC. " + q));
+        const res = await fetch(p + "text.pollinations.ai/" + encodeURIComponent("Du bist TGRAM Copilot für TON, NEC, BBC und AXF. Antworte kurz und präzise. " + q));
         const ans = await res.text();
         box.innerHTML += `<div><strong>Copilot:</strong> ${ans}</div>`;
       } catch (e) {
-        box.innerHTML += `<div><strong>Copilot:</strong> Serverless-Anfrage verarbeitet (${q}).</div>`;
+        box.innerHTML += `<div><strong>Copilot:</strong> Verbindungsfehler zum Serverless Proxy.</div>`;
       }
       box.scrollTop = box.scrollHeight;
     }
