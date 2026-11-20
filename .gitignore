@@ -1,0 +1,6 @@
+.env
+*.save
+node_modules/
+__pycache__/
+.wrangler/
+tools/
