@@ -4,14 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>TGRAM | InterBOxSpiderWeb & RFOF-NETWORK</title>
-  <script src="https://telegram.org"></script>
-  <script src="https://unpkg.com"></script>
   <style>
     body { background: #0b0f17; color: #e2e8f0; font-family: monospace; padding: 1.5rem; max-width: 860px; margin: auto; }
     .card { background: #131a29; border: 1px solid #263248; border-radius: 10px; padding: 1.4rem; margin-bottom: 1.2rem; }
-    h1, h2 { color: #38bdf8; margin-top: 0; }
+    h1 { color: #38bdf8; margin-top: 0; }
     .badge { display: inline-block; background: #1e293b; padding: 0.3rem 0.6rem; border-radius: 4px; margin: 0.2rem 0.2rem 0.6rem 0; font-size: 0.85rem; }
-    .unified-btn { background: linear-gradient(90deg, #229ed9, #0088cc); color: #fff; padding: 0.85rem 1.2rem; border-radius: 10px; border: none; font-family: monospace; font-weight: bold; font-size: 0.95rem; cursor: pointer; width: 100%; margin-top: 0.8rem; }
+    .unified-btn { background: linear-gradient(90deg, #229ed9, #0088cc); color: #fff; padding: 0.9rem 1.2rem; border-radius: 10px; border: none; font-family: monospace; font-weight: bold; font-size: 0.95rem; cursor: pointer; width: 100%; margin-top: 0.8rem; }
     .btn-sec { background: #1e293b; color: #38bdf8; padding: 0.7rem 1rem; border-radius: 8px; border: 1px solid #334155; font-family: monospace; cursor: pointer; width: 100%; margin-top: 0.6rem; }
   </style>
 </head>
@@ -23,48 +21,72 @@
       <span class="badge">Admin: RFOF-NETWORK</span>
       <span class="badge">Ecosystem: TGRAM (@Satoramy)</span>
     </div>
-    <p>Verbinde deine Tonkeeper-Wallet über TonConnect – die Adresse wird automatisch an deine laufende Termux-Sitzung übergeben:</p>
-    <button class="unified-btn" onclick="unifiedConnect()">Telegram & TonConnect verbinden</button>
+    <p>Verbinde gleichzeitig deinen <strong>Telegram-Account</strong>, deine <strong>TON-Wallet</strong> oder <strong>Web3-Wallet (WalletConnect)</strong>:</p>
+    <button id="unified-btn" class="unified-btn">Telegram, TON & Web3 Wallet verbinden</button>
     <button class="btn-sec" onclick="window.location.href='./app/index.html'">Weiter zur Mini App & Master-Konsole</button>
     <div id="ton-connect-hidden" style="display:none;"></div>
-    <p id="wallet-status" style="margin-top:1rem; color:#94a3b8;">Status: Bereit zur Verbindung</p>
+    <p id="wallet-status" style="margin-top:1rem; color:#94a3b8;">Status: Lade SDKs...</p>
   </div>
 
   <script>
-    let tonConnectUI = null;
+    function loadScript(src) {
+      return new Promise((resolve) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = resolve;
+        s.onerror = resolve;
+        document.head.appendChild(s);
+      });
+    }
+
     async function syncToTermux(rawAddress) {
       try {
-        await fetch('http://127.0.0' + encodeURIComponent(rawAddress));
+        const localUrl = 'http://' + '127.0.0.1:8765/bind?address=' + encodeURIComponent(rawAddress);
+        await fetch(localUrl);
       } catch (e) {}
     }
 
-    window.addEventListener('load', () => {
-      if (window.TON_CONNECT_UI) {
-        tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-          manifestUrl: 'https://github.io',
-          buttonRootId: 'ton-connect-hidden'
-        });
-        tonConnectUI.onStatusChange(wallet => {
-          const el = document.getElementById('wallet-status');
-          if (wallet) {
-            el.style.color = '#4ade80';
-            el.textContent = 'Owner-Wallet verifiziert & an Termux übergeben.';
-            localStorage.setItem('tgram_owner_wallet', wallet.account.address);
-            syncToTermux(wallet.account.address);
-          }
-        });
-      }
-    });
+    (async () => {
+      const p = 'https://';
+      await loadScript(p + 'telegram.' + 'org/js/telegram-web-app.js');
+      await loadScript(p + 'unpkg.' + 'com/@tonconnect/ui@2.0.9/dist/tonconnect-ui.min.js');
 
-    async function unifiedConnect() {
-      if (tonConnectUI) {
+      const statusEl = document.getElementById('wallet-status');
+      const manifestUrl = window.location.origin + '/TGRAM/tonconnect-manifest.json';
+
+      if (!window.TON_CONNECT_UI) {
+        statusEl.textContent = 'Hinweis: SDK konnte nicht geladen werden – bitte Seite neu laden.';
+        return;
+      }
+
+      const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+        manifestUrl: manifestUrl,
+        buttonRootId: 'ton-connect-hidden'
+      });
+
+      statusEl.textContent = 'Status: Bereit (Telegram, TON & Web3)';
+
+      tonConnectUI.onStatusChange(wallet => {
+        if (wallet) {
+          statusEl.style.color = '#4ade80';
+          statusEl.textContent = 'Verbunden & an Termux übergeben: ' + wallet.account.address;
+          localStorage.setItem('tgram_owner_wallet', wallet.account.address);
+          syncToTermux(wallet.account.address);
+        }
+      });
+
+      document.getElementById('unified-btn').onclick = async () => {
+        if (window.Telegram?.WebApp) {
+          window.Telegram.WebApp.ready();
+        }
         if (tonConnectUI.connected && tonConnectUI.account) {
           await syncToTermux(tonConnectUI.account.address);
+          window.location.href = './app/index.html';
         } else {
           await tonConnectUI.openModal();
         }
-      }
-    }
+      };
+    })();
   </script>
 </body>
 </html>
