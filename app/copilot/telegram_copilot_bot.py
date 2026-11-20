@@ -14,7 +14,7 @@ def load_env(path):
 
 def ask_free_copilot(prompt_text):
     gh_token = subprocess.getoutput("gh auth token").strip()
-    url = "https://github.ai"
+    url = "https://models." + "github.ai/inference/chat/completions"
     payload = json.dumps({
         "model": "gpt-4o-mini",
         "messages": [
