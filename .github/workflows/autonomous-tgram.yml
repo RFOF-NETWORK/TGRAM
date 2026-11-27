@@ -30,3 +30,27 @@ jobs:
         run: |
           chmod +x tgram-cli.sh
           ./tgram-cli.sh
+
+      # AUTO-HEAL STEP
+      - name: Auto-Heal Environment Variables
+        run: python auto_heal_env.py || true
+          
+      - name: Push Auto-Healed Env Files
+        run: |
+          git config --global user.name "TGRAM Auto-Healer Bot"
+          git config --global user.email "actions@github.com"
+          git add .env.example blockchain-cloud/.env.example || true
+          git commit -m "Auto-Heal: Synchronized missing .env keys [skip ci]" || echo "No changes"
+          git push || echo "No changes to push"
+
+      # AUDIT STEP
+      - name: Run TGRAM Dual-Stack Audit
+        run: |
+          pip install requests python-dotenv
+          python gemini_private_scan.py || true
+
+      - name: Commit Audit Status
+        run: |
+          git add CyberNode-status.json || true
+          git commit -m "Auto-update CyberNode-status.json [skip ci]" || echo "No changes"
+          git push || echo "No changes to push"
