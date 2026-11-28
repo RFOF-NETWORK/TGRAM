@@ -8,6 +8,7 @@ const FOREIGN_ADDRESSES = new Set(["UQAHf2mwKFjEprwz5fBS5k5brROrldthRCz-CVi5eVm9
 const envVault = (process.env.TON_MULTISIG_VAULT || "").trim();
 const VAULT = envVault && !FOREIGN_ADDRESSES.has(envVault) ? envVault : OWNER_ADDRESS;
 const TONCENTER = "https://toncenter.com/api/v3";
+const { latestTx } = require("./_liteserver");
 
 const PRICING = {
   creditsPerTon: 100,        // 1 TON  -> 100 credits
@@ -172,6 +173,8 @@ async function askAI(prompt) {
 
 // Latest real transaction of the bot wallet that covers free AI usage.
 async function botLatestTx() {
+  const lite = await latestTx(VAULT);
+  if (lite) return lite;
   try {
     const t = (await vaultTransactions())[0];
     if (t) return { hash: t.hash, utime: t.now, fee: Number(t.total_fees || 0) / 1e9 };
