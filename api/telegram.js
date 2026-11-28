@@ -3,6 +3,7 @@
 const { PRICING, balance, charge, paymentLink, askAI, VAULT, ledger, explorerLinks, accountLinks, botLatestTx, rewardAI } = require("./_economy");
 const { signAIReply } = require("./_botwallet");
 const { AXF_PER_STAR, isAxfPayload, axfClaims, axfInvoice } = require("./_axf");
+const userdb = require("./_userdb");
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || "";
@@ -137,6 +138,46 @@ async function handle(msg) {
   const [cmdRaw, ...rest] = text.split(" ");
   const cmd = cmdRaw.split("@")[0].toLowerCase();
   const arg = rest.join(" ").trim();
+  const me = msg.from ? await userdb.touchUser(msg.from).catch(e => (console.error("userdb", e.message), null)) : null;
+
+  if (cmd === "/meinedaten") {
+    const o = await userdb.myOverview(uid);
+    return reply(
+      chatId,
+      [
+        `Deine Datenbank (${o.role === "admin" ? "Admin" : "Nutzer"})`,
+        `KI-Punkte: ${o.points} (AXF-gedeckt, werden erst zu Stars, wenn AXF echte Stars gekauft hat)`,
+        `Echte Stars ausgezahlt: ${o.stars} | AXF: ${o.axf}`,
+        `Nachrichten: ${o.messages} | Zeichen: ${o.chars}`,
+        `Gespeicherte Eintraege: ${o.keys.length ? o.keys.join(", ") : "keine"}`,
+        "/speichern <name> <text> | /laden <name> | /loeschen",
+      ].join("\n"),
+    );
+  }
+  if (cmd === "/speichern") {
+    const [key, ...val] = arg.split(" ");
+    const k = (key || "").toLowerCase();
+    if (!userdb.KEY_RE.test(k) || !val.join(" ").trim()) return reply(chatId, "Nutzung: /speichern <name> <text> (name: a-z, 0-9, _ -)");
+    await userdb.setData(uid, k, val.join(" ").trim());
+    return reply(chatId, `Gespeichert in deiner Datenbank: ${k}`);
+  }
+  if (cmd === "/laden") {
+    const row = await userdb.getData(uid, arg.toLowerCase());
+    return reply(chatId, row ? `${arg}:\n${row.value.text}` : "Kein Eintrag mit diesem Namen.");
+  }
+  if (cmd === "/loeschen") {
+    if (arg !== "ja") return reply(chatId, "Loescht alle deine Daten unwiderruflich. Bestaetigen mit: /loeschen ja");
+    await userdb.deleteMe(uid);
+    return reply(chatId, "Deine Daten wurden geloescht.");
+  }
+  if (cmd === "/admin") {
+    if (me?.role !== "admin") return reply(chatId, "Nur fuer den Admin.");
+    const s = await userdb.adminStats();
+    return reply(
+      chatId,
+      `Admin-Uebersicht\nNutzer: ${s.users} (aktiv 24h: ${s.active24h})\nNachrichten: ${s.messages} | Zeichen: ${s.chars}\nKI-Punkte offen: ${s.points} | Echte Stars ausgezahlt: ${s.stars} | AXF gesamt: ${s.axf}`,
+    );
+  }
 
   if (cmd === "/axf") {
     const stars = parseInt(arg, 10);
@@ -185,6 +226,8 @@ async function handle(msg) {
         "/stars <n> - Credits mit Telegram Stars kaufen (1 Star = 1 Credit)",
         `/axf <n> - AXF mit Stars kaufen (1 Star = ${AXF_PER_STAR} AXF), /axf zeigt deinen AXF-Stand`,
         "/cmd add|remove|list - eigene Sub-Befehle (nur nach Erlauben)",
+        "/meinedaten - deine eigene Datenbank ansehen",
+        "/speichern <name> <text>, /laden <name>, /loeschen - eigene Daten verwalten",
         `/game - Mini Game starten (${PRICING.cost.game ? PRICING.cost.game + " Credit" : "kostenlos"})`,
       ].join("\n"),
     );
@@ -221,6 +264,7 @@ async function handle(msg) {
   await tg("sendChatAction", { chat_id: chatId, action: "typing" });
   const [answer, proof] = await Promise.all([askAI(question), signAIReply(uid)]);
   const reward = rewardAI(uid);
+  userdb.logEvent(uid, "ai", { chars: question.length + String(answer).length, points: reward.earned }).catch(e => console.error("userdb log", e.message));
   return sendReply(chatId, c.free ? answer : `${answer}\n\n(-${c.cost} Credits, Rest ${c.available})`, {}, uid, reward, proof);
 }
 
