@@ -356,20 +356,20 @@
       <input type="number" id="stake-amount" placeholder="NEC Menge zum Staken..." aria-label="NEC Menge" />
       <div class="input-group" style="margin-top:0.5rem;">
         <select id="stake-pool" aria-label="Laufzeit">
-          <option value="30">30 Tage (5% APY)</option>
-          <option value="90">90 Tage (12% APY)</option>
-          <option value="365">365 Tage (25% APY)</option>
+          <option value="30">30 Tage (Vorschau)</option>
+          <option value="90">90 Tage (Vorschau)</option>
+          <option value="365">365 Tage (Vorschau)</option>
         </select>
       </div>
-      <p class="muted" style="margin:0;">Plattform-Gebühr: 0 % (übernimmt @toncoing_bot)</p>
-      <button class="btn" type="button" onclick="executeStake()">Staken & Pool stabilisieren</button>
+      <p class="muted" style="margin:0;">Die Auswahl ist eine Vorschau. Der Button öffnet STON.fi; er führt kein Staking aus. Laufzeit, Rendite und Gebühren müssen dort geprüft werden.</p>
+      <button class="btn" type="button" onclick="executeStake()">STON.fi Pools öffnen</button>
     </div>
     <div class="card">
       <h3>Mining · XP Vault (AXF)</h3>
-      <p class="warn" style="font-size:0.85rem; margin-top:0;">Gesperrte Vermögenswerte für Arbitrage (AXF):</p>
+      <p class="warn" style="font-size:0.85rem; margin-top:0;">Vorschau: Es werden keine Vermögenswerte gesperrt oder Mining-Erträge ausgezahlt.</p>
       <div class="token-balance"><span>XP Level:</span><span id="xp-level" class="ok">1</span></div>
       <div class="token-balance"><span>AXF in Wallet:</span><span id="vault-bal">–</span></div>
-      <button class="btn" type="button" onclick="claimVault()">Tägliche XP & Rendite abholen</button>
+      <button class="btn" type="button" onclick="claimVault()">XP-Vorschau erhöhen</button>
     </div>
     <div class="card">
       <h3>Jettons & LP-Anteile</h3>
@@ -395,7 +395,7 @@
     </div>
     <div class="card chat-card" data-pane="tc:chat">
       <h3 style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.3rem;"><svg class="icon"><use href="#i-bot"/></svg>TGRAM Copilot</h3>
-      <div class="token-balance"><span>KI vom Bot bezahlt · Credits:</span><span id="ai-credits">verbinden...</span></div>
+      <div class="token-balance"><span>KI · Credits:</span><span id="ai-credits">verbinden...</span></div>
       <div class="chip-row" id="tc-chips"></div>
       <div id="repo-ctx" class="repo-ctx hidden"></div>
       <div id="tc-log" aria-live="polite"></div>
@@ -434,7 +434,7 @@
     </div>
     <div class="card">
       <h3>Woher kommen die Stars?</h3>
-      <p class="muted">Stars sind die Telegram-Währung (XTR) für digitale Güter in Bots. Sie werden über Rechnungen mit Währung XTR bezahlt und landen im Saldo des Bots. Statt Referral-Belohnung gibt es Stars für KI-Interaktionen mit dem TGRAM Copilot.</p>
+      <p class="muted">Stars sind die Telegram-Währung (XTR) für digitale Güter in Bots. Über XTR-Rechnungen bezahlte Stars landen im Saldo des Bots. KI-Interaktionen zählen derzeit nur als vorübergehende interne Punkte, nicht als Telegram Stars.</p>
       <a class="chip" href="https://core.telegram.org/bots/payments-stars" target="_blank" rel="noopener noreferrer">Telegram Stars Dokumentation</a>
     </div>
   </section>
@@ -452,13 +452,14 @@
     </div>
     <div class="card">
       <h3>Smart Contracts · verifier.ton.org</h3>
-      <p class="muted">Jeder Eintrag ist antippbar und öffnet den Verifier. Status wird live aus der Blockchain gelesen. Die Zahl der verifizierten Contracts auf verifier.ton.org steigt erst, wenn ein Contract deployed und sein Quellcode dort verifiziert wurde.</p>
+      <p class="muted">Adressen öffnen den Verifier; Quelldateien ohne hinterlegte Deployment-Adresse öffnen GitHub. Der Kontostatus wird über TonAPI abgefragt und ist kein Verifizierungsnachweis. Den Verifizierungsstatus bitte im Verifier prüfen. Eine Verifizierung erfordert einen Deployment- und Quellcode-Nachweis.</p>
       <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.6rem">
         <a class="chip" href="https://verifier.ton.org/" target="_blank" rel="noopener noreferrer">Verifier</a>
         <a class="chip" href="https://verifier.ton.org/verified" target="_blank" rel="noopener noreferrer">Verifizierte Contracts</a>
         <a class="chip" href="https://verifier.ton.org/statistics" target="_blank" rel="noopener noreferrer">Statistik</a>
       </div>
       <div class="list" id="contract-list"><p class="muted">Lade Status …</p></div>
+      <button class="btn btn-ghost" type="button" onclick="renderContracts(true)">Status erneut prüfen</button>
     </div>
     <div class="card">
       <h3>Vier Welten · AXF-Logik</h3>
@@ -1158,7 +1159,7 @@
     }
 
     function claimVault() {
-      alert(`[XP-VAULT] 10 XP abgeholt. AXF-Rendite wird on-chain im Staking-Tab angezeigt.`);
+      alert('XP-Vorschau: Der angezeigte Level steigt nur in dieser Sitzung. Es werden keine AXF oder Telegram Stars ausgezahlt.');
       let lvl = parseInt(document.getElementById('xp-level').textContent);
       document.getElementById('xp-level').textContent = lvl + 1;
     }
@@ -1168,10 +1169,10 @@
       ['done', 'Wallet & TON Connect', 'Verbinden, Guthaben, Senden/Empfangen von TON und Jettons (TEP-74).'],
       ['done', 'DEX mit allen TON-Token', 'Über 600 handelbare Token von STON.fi plus eigene NEC/BBC/AXF, 1 % Gebühr on-chain an den Vault.'],
       ['done', 'Charts', 'TON/USD und Jetton/TON-Kerzen; nicht geminted Token werden klar gekennzeichnet.'],
-      ['done', 'Telegram-Bot @toncoing_bot', 'KI-Antworten mit echtem Transaktions-Link (Tonviewer/Tonscan), Wert und Stars-Zähler.'],
+      ['wip', 'Telegram-Bot @toncoing_bot', 'KI-Antworten mit Links zu vorhandenen Vault-Transaktionen und vorübergehendem KI-Punktezähler; keine echten Stars-Belohnungen.'],
       ['done', 'Eigene Liteserver', 'Blockchain-Abfragen zuerst über deine TON-Console-Liteserver, Toncenter als Fallback.'],
       ['done', 'KI-Chat führt Transaktionen aus', '„sende 1 TON an UQ…“ oder /send: Bestätigung im Allow-Popup, Unterschrift über TON Connect.'],
-      ['wip', 'Bot-Wallet signiert selbst', 'Eigene 24 Wörter sind in BOT_WALLET_MNEMONIC hinterlegt (Wallet UQBg9Q1k…QSv27). Fehlt noch: 1–2 TON Guthaben, danach der Signier-Code für eine Transaktion pro KI-Antwort.'],
+      ['wip', 'Bot-Wallet signiert selbst', 'Eine separate Bot-Wallet und sichere Konfiguration sind erforderlich. Automatisches Signieren und Zahlungen für KI-Antworten sind noch nicht implementiert.'],
       ['wip', 'AXF / NEC minten', 'AXF ist noch nicht on-chain geminted; Minten im TLPFG-Tab, danach erscheinen Kurs und Chart automatisch.'],
       ['done', 'KI-Wächter', 'Read-only Live-Prüfung von Mainnet, Testnet, Liteservern, Bot, Stars und Anzeige in der Oberfläche.'],
       ['wip', 'Telegram Stars (XTR)', 'Live-Saldo und Transaktionen im MTS-Tab; dauerhafte Stars-Salden pro Nutzer brauchen noch eine Datenbank.'],
@@ -1243,28 +1244,33 @@
   { name: 'AXF Jetton-Minter (TEP-74)', addr: 'EQCwv00qHXTQecB8A7q0NCKSAHH7WHz_7aQCiPjPrQkc28X3' },
   { name: 'Jetton (jetton-token.tolk)', src: 'blockchain-cloud/apiless-onchain/jetton-token.tolk' },
   { name: 'DEX-Launchpad (dex-launchpad.tolk)', src: 'blockchain-cloud/apiless-onchain/dex-launchpad.tolk' },
-  { name: 'Energy-Vault (energy-storage-vault.tolk)', src: 'blockchain-cloud/apiless-onchain/energy-storage-vault.tolk' }
+  { name: 'Energy-Vault (energy-storage-vault.tolk)', src: 'blockchain-cloud/apiless-onchain/energy-storage-vault.tolk' },
+  { name: 'TON-Coin Jetton Minter', repo: 'TON-Coin', src: 'contracts/JettonMinter.tolk' },
+  { name: 'TON-Coin Jetton Wallet', repo: 'TON-Coin', src: 'contracts/JettonWallet.tolk' },
+  { name: 'TON-Coin Gebührenverwaltung', repo: 'TON-Coin', src: 'contracts/fees-management.tolk' }
   ];
   let contractsLoaded = false;
-  async function renderContracts() {
+  async function renderContracts(force = false) {
   const box = document.getElementById('contract-list');
-  if (!box || contractsLoaded) return;
+  if (!box || (contractsLoaded && !force)) return;
   contractsLoaded = true;
+  box.innerHTML = '<p class="muted">Prüfe Kontostatus …</p>';
   const rows = await Promise.all(CONTRACTS.map(async (c) => {
     if (!c.addr) {
-      const href = 'https://github.com/RFOF-NETWORK/TGRAM/blob/main/' + c.src;
-      return '<a class="row" href="' + href + '" target="_blank" rel="noopener noreferrer"><span><strong>' + esc(c.name) + '</strong><br><span class="muted">Quellcode im Repo · noch nicht deployed</span></span><span class="muted">GitHub</span></a>';
+      const href = 'https://github.com/RFOF-NETWORK/' + (c.repo || 'TGRAM') + '/blob/main/' + c.src;
+      return '<a class="row" href="' + href + '" target="_blank" rel="noopener noreferrer"><span><strong>' + esc(c.name) + '</strong><br><span class="muted">Deployment-Adresse nicht hinterlegt · Verifizierung unbekannt</span></span><span class="muted">Quellcode</span></a>';
     }
-    let status = 'unbekannt';
+    let status = 'Kontostatus nicht verfügbar';
     let kind = '';
     try {
       const r = await fetch('https://tonapi.io/v2/accounts/' + c.addr);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
       const j = await r.json();
-      status = j.status === 'active' ? 'aktiv' : j.status === 'nonexist' ? 'noch nicht aktiv (kein Guthaben)' : (j.status || 'unbekannt');
-      kind = (j.interfaces || []).join(', ');
-    } catch (e) {}
-    const href = 'https://verifier.ton.org/' + c.addr;
-    return '<a class="row" href="' + href + '" target="_blank" rel="noopener noreferrer"><span><strong>' + esc(c.name) + '</strong><br><span class="muted">' + esc(c.addr.slice(0, 8) + '…' + c.addr.slice(-6)) + ' · ' + esc(status) + (kind ? ' · ' + esc(kind) : '') + '</span></span><span class="muted">Verifier</span></a>';
+      status = j.status === 'active' ? 'Konto aktiv' : j.status === 'nonexist' ? 'Konto nicht vorhanden' : j.status ? 'Konto: ' + j.status : status;
+      kind = Array.isArray(j.interfaces) ? j.interfaces.join(', ') : '';
+    } catch (e) { console.warn('Kontostatus konnte nicht geladen werden:', e); }
+    const href = 'https://verifier.ton.org/' + encodeURIComponent(c.addr);
+    return '<a class="row" href="' + href + '" target="_blank" rel="noopener noreferrer"><span><strong>' + esc(c.name) + '</strong><br><span class="muted">' + esc(c.addr) + ' · ' + esc(status) + (kind ? ' · ' + esc(kind) : '') + ' · Verifizierung im Verifier prüfen</span></span><span class="muted">Verifier</span></a>';
   }));
   box.innerHTML = rows.join('');
   }

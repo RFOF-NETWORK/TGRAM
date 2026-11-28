@@ -21,7 +21,17 @@ Festgehalten nach den Vorgaben von @Satoramy (RFOF-NETWORK). Die drei Repos bild
 9. **Die KI bezahlt der Bot für alle.** Sie soll nicht nur echte Transaktionen, sondern alles aus dem Chat heraus ermöglichen: Coden, Chatten und alle App-Funktionen über Slash-Befehle.
 10. **Sub-Befehle:** Die KI des Bots (der Bot als Entität) kann neue Sub-Befehle erstellen und wieder entfernen, aber nur über Slash-Befehle und nur nach einem **Allow-Popup**. So bleibt es sicher und auf den Chat beschränkt.
 11. **KI-Chat wie ein echter Coding-Agent:** Man soll sich mit GitHub verbinden und mit Repos bzw. in Repos coden können.
-12. **Telegram Stars** werden durch die Transaktionen des Bots verdient. Die eigenen Token sollen diesen Wert schaffen und ihn als Anreiz zur Nutzung der KI an die User weitergeben.
+12. **Telegram Stars:** Gewünscht sind echte Belohnungen für die Nutzung der KI, finanziert durch das Ökosystem. TON-Transaktionen erzeugen jedoch nicht automatisch Telegram Stars; interne KI-Punkte sind keine Stars.
+
+## AXF-Wirtschaftsmodell: Vorgabe und offene Fragen
+
+Für AXF, ABillity, XP und FPS ist ein Start bei null Liquidität, Preis und Menge vorgesehen. Je Währung sollen zwei Anteile zu je 25 % in die Liquidation gehen; die verbleibenden Anteile zu je 25 % sollen der autonomen Mengenentstehung und Preisgewinnung bei Ein- und Auszahlungen dienen. Die Bot-Wallet soll mit bereitgestelltem TON zum Start beitragen; die KI soll für Nutzer kostenlos bleiben.
+
+Die Liquidität soll dauerhaft gesperrt und nicht von Menschen entnommen werden; Swaps dürfen die Tokenbestände im Pool verändern. AXF soll nicht allein gestakt werden; für eine normale Staking-Rendite ist laut Vorgabe zunächst ein Pool mit einer anderen Währung erforderlich. Wie die dauerhafte Sperre, Staking und deren Zusammenspiel technisch umgesetzt werden, ist noch festzulegen.
+
+Der Admin soll unabhängig vom autonomen Betrieb ein Minting-Recht behalten. Die Ausgabe soll sich am Liquiditätswert statt an einer festen Supply-Obergrenze orientieren. Die Berechtigung muss technisch im Contract festgelegt werden; Urheberrechte allein verleihen keine On-Chain-Rechte. Zusätzliches Minting kann bestehende Anteile oder den Marktpreis verwässern.
+
+Diese Vorgabe ist noch keine ausführbare Formel: Die Bezugsgröße der 25 %, die Bedeutung der beiden Liquidationsanteile, die erstmalige Tokenmenge, die Messung des Liquiditätswerts und der konkrete Mechanismus für Ein- und Auszahlungen sind nicht festgelegt. Eine prozentuale Erhöhung eines Nullwerts bleibt null. Ein handelbarer Marktpreis und Gewinne entstehen nicht allein durch eine Formel oder Interoperabilität und können nicht garantiert werden. Bis diese Fragen geklärt und die Umsetzung geprüft ist, dürfen daraus keine automatischen Transaktionen oder behaupteten Renditen abgeleitet werden.
 
 ## Umsetzung im Code
 

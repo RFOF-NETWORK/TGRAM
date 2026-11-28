@@ -18,14 +18,14 @@ async function tg(method, body) {
 const MAX_TEXT = 3600;
 const fmt = (n) => (n == null ? "-" : Number(n.toFixed(6)).toString());
 
-// Every bot message links the user's latest real on-chain transaction on Tonviewer and
-// Tonscan, so costs and the bot-paid AI stay verifiable. No account-level fallback links.
+// Link the latest matching vault payment, or the latest vault transaction as context.
+// Neither proves the cost of the current AI response.
 const utc = (s) => (s ? " · " + new Date(s * 1000).toISOString().slice(0, 16).replace("T", " ") + " UTC" : "");
 
 async function txFooter(subject, reward, proof) {
-  const aiCost = PRICING.cost.ai ? `${PRICING.cost.ai} Credits` : "0 fuer dich (zahlt @toncoing_bot)";
+  const aiCost = PRICING.cost.ai ? `${PRICING.cost.ai} Credits` : "0 Credits fuer dich (zahlt @toncoing_bot)";
   const rewardLine = reward
-    ? `\nBonus: +${reward.earned} TGRAM-Punkt (intern, keine Telegram Stars, kein TON) · gesamt ${reward.total}`
+    ? `\nKI-Punkte: +${reward.earned} · gesamt ${reward.total} (nur voruebergehend, keine Telegram Stars)`
     : "";
   const proofLinks = proof?.hash && explorerLinks(proof.hash);
   if (proofLinks) {
@@ -39,7 +39,7 @@ async function txFooter(subject, reward, proof) {
   if (latest) {
     const links = explorerLinks(latest.hash);
     return {
-      text: `\n\n— KI-Kosten: ${aiCost}${rewardLine}\nNachweis: deine letzte Tx ${fmt(latest.amount)} ${latest.token} · Netzgebuehr ${fmt(latest.fee)} TON${utc(latest.utime)}`,
+      text: `\n\n— KI-Kosten: ${aiCost}${rewardLine}\nLetzte zugeordnete Vault-Zahlung: ${fmt(latest.amount)} ${latest.token} · Netzgebuehr ${fmt(latest.fee)} TON${utc(latest.utime)}`,
       row: links ? [{ text: "Tonviewer", url: links.tonviewer }, { text: "Tonscan", url: links.tonscan }] : [],
     };
   }
@@ -48,7 +48,7 @@ async function txFooter(subject, reward, proof) {
   const botLinks = bot && explorerLinks(bot.hash);
   if (botLinks) {
     return {
-      text: `\n\n— KI-Kosten: ${aiCost}${rewardLine}\nNachweis: Bot-Wallet Tx · Netzgebuehr ${fmt(bot.fee)} TON${utc(bot.utime)}`,
+      text: `\n\n— KI-Kosten: ${aiCost}${rewardLine}\nLetzte Vault-Transaktion (kein Nachweis fuer diese Antwort) · Netzgebuehr ${fmt(bot.fee)} TON${utc(bot.utime)}`,
       row: [{ text: "Tonviewer", url: botLinks.tonviewer }, { text: "Tonscan", url: botLinks.tonscan }],
     };
   }
@@ -133,7 +133,7 @@ async function handle(msg) {
     return tg("sendInvoice", {
       chat_id: chatId,
       title: "TGRAM Credits",
-      description: `${amount} Credits fuer TGRAM (1 Star = 1 Credit). Unterstuetzt die KI, die der Bot fuer alle bezahlt.`,
+      description: `${amount} Credits fuer TGRAM (1 Star = 1 Credit). Unterstuetzt die Bereitstellung der KI.`,
       payload: `TGRAM:${uid}`,
       currency: "XTR",
       prices: [{ label: `${amount} Credits`, amount }],
