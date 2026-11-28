@@ -102,6 +102,12 @@
     .msg { max-width: 88%; padding: 0.6rem 0.8rem; border-radius: 12px; font-size: 0.85rem; white-space: pre-wrap; word-break: break-word; }
     .msg.user { align-self: flex-end; background: #0c4a6e; border-bottom-right-radius: 4px; }
     .msg.bot { align-self: flex-start; background: #0b111e; border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+    .plan-bar { height: 8px; background: var(--border); border-radius: 999px; overflow: hidden; margin: 0.4rem 0 0.8rem; }
+    .plan-bar span { display: block; height: 100%; background: var(--primary); }
+    .plan-step { display: flex; gap: 0.6rem; align-items: flex-start; padding: 0.55rem 0; border-top: 1px solid var(--border); font-size: 0.85rem; line-height: 1.5; }
+    .plan-step .st { flex: none; min-width: 4.2rem; font-size: 0.7rem; font-weight: bold; text-transform: uppercase; }
+    .plan-step .st.done { color: var(--ok); } .plan-step .st.wip { color: var(--warn); } .plan-step .st.todo { color: var(--muted); }
+    .plan-step p { margin: 0.15rem 0 0; color: var(--muted); }
     .msg.sys { align-self: center; color: var(--muted); font-size: 0.75rem; background: none; }
     .tx-foot { margin-top: 0.5rem; padding-top: 0.4rem; border-top: 1px solid var(--border); font-size: 0.72rem; color: var(--muted); white-space: normal; }
     .tx-foot a { color: var(--primary); }
@@ -139,6 +145,7 @@
     <symbol id="i-coins" viewBox="0 0 24 24"><circle cx="8" cy="8" r="6"/><path d="M18.1 10.4A6 6 0 1 1 10.3 18M7 6h1v4M16.7 13.9l.7.7-2.8 2.8"/></symbol>
     <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
     <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 3"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5zM4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></symbol>
     <symbol id="i-bot" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="12" rx="2"/><path d="M12 8V4M8 14h.01M16 14h.01"/></symbol>
   </svg>
 
@@ -388,6 +395,24 @@
     </div>
   </section>
 
+  <section id="view-docs" data-view class="hidden" aria-label="Docs und Bauplan">
+    <div class="card">
+      <h3>Bauplan TGRAM · 0–100 %</h3>
+      <p class="muted">Was schlüsselfertig läuft und was noch fehlt. Stand wird bei jedem Release aktualisiert.</p>
+      <div class="plan-bar" role="progressbar" aria-label="Fortschritt" aria-valuemin="0" aria-valuemax="100" id="plan-progress"><span></span></div>
+      <p id="plan-percent" class="muted"></p>
+      <div id="plan-list"></div>
+    </div>
+    <div class="card">
+      <h3>KI-Chat: Transaktionen ausführen</h3>
+      <p class="muted">Im TC-Tab schreibst du einfach, was passieren soll. Die Wallet fragt jede Zahlung über TON Connect zur Bestätigung ab, nichts geht ohne deine Unterschrift raus.</p>
+      <pre><code>sende 0.5 TON an UQ...
+/send NEC UQ... 100
+/swap TON USDT 1
+/repo RFOF-NETWORK/TGRAM</code></pre>
+    </div>
+  </section>
+
   <section id="view-verlauf" data-view class="hidden" aria-label="Verlauf">
     <div class="card">
       <h3>Account-Analyse</h3>
@@ -425,6 +450,7 @@
     <button type="button" data-nav="tc" onclick="showTab('tc')" aria-label="TC TGRAM Copilot"><svg class="icon"><use href="#i-bot"/></svg>TC</button>
     <button type="button" data-nav="launchpad" onclick="showTab('launchpad')"><svg class="icon"><use href="#i-rocket"/></svg>TLPFG</button>
     <button type="button" data-nav="staking" onclick="showTab('staking')"><svg class="icon"><use href="#i-coins"/></svg>Mining</button>
+    <button type="button" data-nav="docs" onclick="showTab('docs')"><svg class="icon"><use href="#i-book"/></svg>Docs</button>
   </nav>
 
   <dialog id="explorer-dialog" aria-labelledby="explorer-title">
@@ -484,7 +510,7 @@
     const short = a => a ? a.slice(0, 6) + "..." + a.slice(-4) : "";
 
     // --- V4.1 Navigation ---
-    const VIEWS = ['home', 'dex', 'tc', 'launchpad', 'staking', 'verlauf', 'profil'];
+    const VIEWS = ['home', 'dex', 'tc', 'launchpad', 'staking', 'docs', 'verlauf', 'profil'];
     let txCache = [];
     let tradeFilter = 'ALL';
     let chartPair = 'TON';
@@ -504,6 +530,7 @@
       if (name === 'verlauf' && userAddress) loadHistory().then(loadAccountAnalysis);
       if (name === 'dex') { loadPools(); updateDexFee(); loadChart(chartPair); if (userAddress && !txCache.length) loadHistory(); }
       if (name === 'tc') { initCopilot(); setTimeout(() => document.getElementById('chat-input').focus(), 50); }
+      if (name === 'docs') renderPlan();
       if (name === 'launchpad') { renderMajor(); if (userAddress && !txCache.length) loadHistory().then(renderMajor); }
       window.scrollTo(0, 0);
     }
@@ -769,10 +796,11 @@
           const d = await (await fetch('https://api.coingecko.com/api/v3/coins/the-open-network/ohlc?vs_currency=usd&days=7')).json();
           candles = d.map(([t, o, h, l, c]) => ({ time: Math.floor(t / 1000), open: o, high: h, low: l, close: c }));
         } else {
-          const j = jettons[pair];
-          if (!j) { candleSeries.setData([]); label.textContent = pair + ': Master-Adresse unbekannt (Wallet mit ' + pair + ' verbinden)'; last.textContent = '–'; return; }
+          let master = (jettons[pair] || (ECO_ALIASES[pair] && ecoJetton(pair)))?.master;
+          if (!master) { try { await loadDexAssets(); } catch (e) {} master = dexAssets.get(pair)?.addr; }
+          if (!master) { candleSeries.setData([]); label.textContent = pair + ': noch nicht on-chain geminted, kein Kurs vorhanden (im TLPFG-Tab minten)'; last.textContent = '–'; return; }
           label.textContent = pair + '/TON · Stundenkerzen';
-          const p = await (await fetch('https://api.geckoterminal.com/api/v2/networks/ton/tokens/' + encodeURIComponent(j.master) + '/pools')).json();
+          const p = await (await fetch('https://api.geckoterminal.com/api/v2/networks/ton/tokens/' + encodeURIComponent(master) + '/pools')).json();
           const pool = p.data && p.data[0] && p.data[0].attributes.address;
           if (!pool) throw new Error('kein Pool');
           const o = await (await fetch('https://api.geckoterminal.com/api/v2/networks/ton/pools/' + pool + '/ohlcv/hour?limit=168&currency=token')).json();
@@ -1064,6 +1092,53 @@
       document.getElementById('xp-level').textContent = lvl + 1;
     }
 
+    // --- DOCS · Bauplan (status: done | wip | todo) ---
+    const PLAN = [
+      ['done', 'Wallet & TON Connect', 'Verbinden, Guthaben, Senden/Empfangen von TON und Jettons (TEP-74).'],
+      ['done', 'DEX mit allen TON-Token', 'Über 600 handelbare Token von STON.fi plus eigene NEC/BBC/AXF, 1 % Gebühr on-chain an den Vault.'],
+      ['done', 'Charts', 'TON/USD und Jetton/TON-Kerzen; nicht geminted Token werden klar gekennzeichnet.'],
+      ['done', 'Telegram-Bot @toncoing_bot', 'KI-Antworten mit echtem Transaktions-Link (Tonviewer/Tonscan), Wert und Stars-Zähler.'],
+      ['done', 'Eigene Liteserver', 'Blockchain-Abfragen zuerst über deine TON-Console-Liteserver, Toncenter als Fallback.'],
+      ['done', 'KI-Chat führt Transaktionen aus', '„sende 1 TON an UQ…“ oder /send: Bestätigung im Allow-Popup, Unterschrift über TON Connect.'],
+      ['wip', 'Bot-Wallet signiert selbst', 'Braucht in BOT_WALLET_MNEMONIC die 24 Wörter einer separaten Bot-Wallet (derzeit falscher Wert eingetragen).'],
+      ['wip', 'AXF / NEC minten', 'AXF ist noch nicht on-chain geminted; Minten im TLPFG-Tab, danach erscheinen Kurs und Chart automatisch.'],
+      ['todo', 'Telegram Stars (XTR)', 'Stars-Rechnungen über die Bot-Payments-API (sendInvoice mit currency XTR) und dauerhafte Stars-Salden in einer Datenbank.'],
+      ['todo', 'Eigene Smart Contracts (tools/acton)', 'Tolk-Contracts bauen, deployen und auf verifier.ton.org verifizieren.'],
+      ['todo', 'TON-Coin & rfof-network.github.ton Pages', 'Fixes liegen bereit; GitHub verweigert noch den Schreibzugriff (403) für v0.'],
+    ];
+    function renderPlan() {
+      const w = { done: 1, wip: 0.5, todo: 0 };
+      const pct = Math.round(PLAN.reduce((s, [st]) => s + w[st], 0) / PLAN.length * 100);
+      const bar = document.getElementById('plan-progress');
+      bar.setAttribute('aria-valuenow', String(pct));
+      bar.firstElementChild.style.width = pct + '%';
+      document.getElementById('plan-percent').textContent = pct + ' % schlüsselfertig';
+      const label = { done: 'Fertig', wip: 'In Arbeit', todo: 'Offen' };
+      document.getElementById('plan-list').innerHTML = PLAN.map(([st, t, d]) => `<div class="plan-step"><span class="st ${st}">${label[st]}</span><div><strong>${esc(t)}</strong><p>${esc(d)}</p></div></div>`).join('');
+    }
+
+    // --- KI-Chat → on-chain: Zahlung nur nach Allow-Popup + Unterschrift in der Wallet ---
+    const ADDR_RE = /^(?:[UEk0]Q[\w-]{46}|-?\d:[0-9a-fA-F]{64})$/;
+    async function chatPay(sym, to, amt) {
+      sym = (sym || '').toUpperCase();
+      if (!userAddress || !tc || !tc.connected) return say('bot', 'Bitte zuerst im Home-Tab die Wallet über TON Connect verbinden.');
+      if (!ADDR_RE.test(to || '')) return say('bot', 'Ungültige Empfänger-Adresse.');
+      if (!(amt > 0)) return say('bot', 'Ungültiger Betrag.');
+      if (sym !== 'TON' && !jettons[sym]) return say('bot', sym + ' ist nicht in deiner Wallet.');
+      if (!(await allow(`${amt} ${sym} senden?`, 'An ' + to))) return say('sys', 'Abgelehnt.');
+      const m = say('sys', 'Bitte in der Wallet bestätigen ...');
+      try {
+        if (sym === 'TON') await sendTon(to, amt); else await sendJetton(sym, to, amt);
+        m.textContent = `${amt} ${sym} gesendet. Die Transaktion erscheint in wenigen Sekunden im Verlauf.`;
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'chip'; b.textContent = 'Im Explorer ansehen';
+        b.onclick = () => openExplorer('account', userAddress);
+        m.appendChild(document.createElement('br')); m.appendChild(b);
+        setTimeout(() => { fetchAccountState(userAddress); loadJettons(); }, 8000);
+      } catch (e) { m.textContent = 'Abgebrochen: ' + e.message; }
+    }
+    const PAY_INTENT = /\b(?:sende|send|schick\w*|überweis\w*|zahl\w*)\s+([\d.,]+)\s*([A-Za-z₮]{2,10})\s+(?:an|to|zu)\s+(\S+)/i;
+
     // --- TC · TGRAM COPILOT (KI vom Bot bezahlt, Slash-Befehle, eigene Sub-Befehle nur per Allow-Popup) ---
     const CUSTOM_KEY = 'tgram_custom_cmds';
     const customCmds = () => { try { return JSON.parse(localStorage.getItem(CUSTOM_KEY) || '{}'); } catch (e) { return {}; } };
@@ -1073,7 +1148,7 @@
     const BUILTIN = {
       help: { d: 'Alle Befehle', run: () => say('bot', 'Befehle:\n' + Object.entries(BUILTIN).map(([k, c]) => '/' + k + ' – ' + c.d).join('\n') + (Object.keys(customCmds()).length ? '\n\nEigene:\n' + Object.entries(customCmds()).map(([k, p]) => '/' + k + ' – ' + p.slice(0, 50)).join('\n') : '')) },
       balance: { d: 'TON + Jettons', run: () => say('bot', userAddress ? 'TON: ' + document.getElementById('balance-ton').textContent + '\n' + ['NEC', 'BBC', 'AXF'].map(s => s + ': ' + (jettons[s] ? jettons[s].balance.toFixed(4) : '0')).join('\n') : 'Bitte zuerst Wallet verbinden (Home).') },
-      send: { d: 'Senden-Dialog', run: () => openSend() },
+      send: { d: '/send TON adresse 1 – direkt aus dem Chat senden', run: a => { const [s, to, n] = a.split(/\s+/); if (!s) return openSend(); chatPay(s, to, Number(String(n).replace(',', '.'))); } },
       receive: { d: 'Eigene Adresse', run: () => openReceive() },
       swap: { d: '/swap TON NEC 1', run: a => { const [f, t, n] = a.split(/\s+/); showTab('dex'); setTimeout(() => { if (f) document.getElementById('dex-from').value = f.toUpperCase(); if (t) document.getElementById('dex-to').value = t.toUpperCase(); if (n) document.getElementById('dex-amount').value = n; updateDexFee(); }, 50); } },
       verlauf: { d: 'Verlauf & Analyse', run: () => showTab('verlauf') },
@@ -1201,6 +1276,8 @@
         if (custom) return askAI(custom + (args ? '\n' + args : ''));
         return say('bot', 'Unbekannter Befehl /' + name + '. /help zeigt alle Befehle.');
       }
+      const pay = q.match(PAY_INTENT);
+      if (pay) return chatPay(pay[2], pay[3].replace(/[.,;!?]+$/, ''), Number(pay[1].replace(',', '.')));
       askAI(q);
     }
 
