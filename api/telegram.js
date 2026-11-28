@@ -1,6 +1,7 @@
 // @toncoing_bot webhook (Vercel). Set once:
 // https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://tgram-tau.vercel.app/api/telegram&secret_token=<TELEGRAM_WEBHOOK_SECRET>
 const { PRICING, balance, charge, paymentLink, askAI, VAULT, ledger, explorerLinks, accountLinks, botLatestTx, rewardAI } = require("./_economy");
+const { signAIReply } = require("./_botwallet");
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || "";
@@ -21,13 +22,20 @@ const fmt = (n) => (n == null ? "-" : Number(n.toFixed(6)).toString());
 // Neither proves the cost of the current AI response.
 const utc = (s) => (s ? " · " + new Date(s * 1000).toISOString().slice(0, 16).replace("T", " ") + " UTC" : "");
 
-async function txFooter(subject, reward) {
-  let latest = null;
-  try { latest = (await ledger(String(subject))).txs[0] || null; } catch {}
-  const aiCost = PRICING.cost.ai ? `${PRICING.cost.ai} Credits` : "0 Credits fuer dich";
+async function txFooter(subject, reward, proof) {
+  const aiCost = PRICING.cost.ai ? `${PRICING.cost.ai} Credits` : "0 Credits fuer dich (zahlt @toncoing_bot)";
   const rewardLine = reward
     ? `\nKI-Punkte: +${reward.earned} · gesamt ${reward.total} (nur voruebergehend, keine Telegram Stars)`
     : "";
+  const proofLinks = proof?.hash && explorerLinks(proof.hash);
+  if (proofLinks) {
+    return {
+      text: `\n\n— KI-Kosten: ${aiCost}${rewardLine}\nNachweis: diese Antwort wurde von der Bot-Wallet in TON signiert · Netzgebuehr ${fmt(proof.fee)} TON (zahlt der Bot)${utc(proof.utime)}`,
+      row: [{ text: "Tonviewer", url: proofLinks.tonviewer }, { text: "Tonscan", url: proofLinks.tonscan }],
+    };
+  }
+  let latest = null;
+  try { latest = (await ledger(String(subject))).txs[0] || null; } catch {}
   if (latest) {
     const links = explorerLinks(latest.hash);
     return {
@@ -49,8 +57,8 @@ async function txFooter(subject, reward) {
 
 const reply = (chat_id, text, extra = {}) => sendReply(chat_id, text, extra);
 
-async function sendReply(chat_id, text, extra = {}, subject = chat_id, reward = null) {
-  const footer = await txFooter(subject, reward);
+async function sendReply(chat_id, text, extra = {}, subject = chat_id, reward = null, proof = null) {
+  const footer = await txFooter(subject, reward, proof);
   const keyboard = extra.reply_markup?.inline_keyboard || [];
   const body = String(text).slice(0, MAX_TEXT) + footer.text;
   const reply_markup = footer.row.length ? { ...extra.reply_markup, inline_keyboard: [...keyboard, footer.row] } : extra.reply_markup;
@@ -193,9 +201,9 @@ async function handle(msg) {
   const c = await charge(uid, "ai");
   if (!c.ok) return needCredits(chatId, uid, c);
   await tg("sendChatAction", { chat_id: chatId, action: "typing" });
-  const answer = await askAI(question);
+  const [answer, proof] = await Promise.all([askAI(question), signAIReply(uid)]);
   const reward = rewardAI(uid);
-  return sendReply(chatId, c.free ? answer : `${answer}\n\n(-${c.cost} Credits, Rest ${c.available})`, {}, uid, reward);
+  return sendReply(chatId, c.free ? answer : `${answer}\n\n(-${c.cost} Credits, Rest ${c.available})`, {}, uid, reward, proof);
 }
 
 module.exports = async (req, res) => {

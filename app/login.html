@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b0f17" />
+  <title>Anmelden | TGRAM</title>
+  <meta name="description" content="Bei TGRAM anmelden: mit GitHub, Microsoft, Google oder eigenem Konto." />
+  <style>
+    :root { --bg:#0b0f17; --card:#131a29; --line:#263248; --text:#e2e8f0; --muted:#94a3b8; --accent:#38bdf8; --err:#f87171; --ok:#4ade80; }
+    * { box-sizing: border-box; }
+    html { background: var(--bg); }
+    body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1.5rem; color: var(--text); font-family: ui-sans-serif, system-ui, sans-serif; line-height: 1.5; }
+    main { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 1.25rem; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 1.75rem; }
+    h1 { margin: 0; font-size: 1.35rem; }
+    h1 span { color: var(--accent); }
+    p { margin: 0; }
+    .muted { color: var(--muted); font-size: .9rem; }
+    .providers { display: flex; flex-direction: column; gap: .5rem; }
+    button { font: inherit; cursor: pointer; border-radius: 8px; padding: .7rem 1rem; border: 1px solid var(--line); background: var(--bg); color: var(--text); display: flex; align-items: center; justify-content: center; gap: .6rem; }
+    button:hover { border-color: var(--accent); }
+    button:disabled { opacity: .6; cursor: wait; }
+    button.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; }
+    .divider { display: flex; align-items: center; gap: .75rem; color: var(--muted); font-size: .8rem; }
+    .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+    form { display: flex; flex-direction: column; gap: .75rem; }
+    label { display: flex; flex-direction: column; gap: .3rem; font-size: .85rem; color: var(--muted); }
+    input { font: inherit; padding: .65rem .8rem; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
+    input:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .switch { background: none; border: none; color: var(--accent); padding: 0; display: inline; }
+    #msg { min-height: 1.5em; font-size: .9rem; }
+    #msg.err { color: var(--err); } #msg.ok { color: var(--ok); }
+    a { color: var(--accent); }
+    svg { width: 18px; height: 18px; flex-shrink: 0; }
+    .row { display: flex; justify-content: space-between; align-items: center; gap: .5rem; flex-wrap: wrap; }
+    code { font-size: .8rem; word-break: break-all; color: var(--accent); }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <main>
+    <section id="auth-view" aria-labelledby="auth-title" style="display:flex; flex-direction:column; gap:1.25rem;">
+      <div>
+        <h1 id="auth-title"><span>TGRAM</span> <span id="mode-title" style="color:inherit;">Anmelden</span></h1>
+        <p class="muted">Ein Konto pro Person. Danach verknüpfst du dein TON-Wallet.</p>
+      </div>
+
+      <div class="providers">
+        <button type="button" data-provider="github">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.6 18.3 5 18.3 5c.7 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5z"/></svg>
+          Mit GitHub fortfahren
+        </button>
+        <button type="button" data-provider="azure">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#f25022" d="M1 1h10v10H1z"/><path fill="#7fba00" d="M13 1h10v10H13z"/><path fill="#00a4ef" d="M1 13h10v10H1z"/><path fill="#ffb900" d="M13 13h10v10H13z"/></svg>
+          Mit Microsoft fortfahren
+        </button>
+        <button type="button" data-provider="google">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285f4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.4h6.5a5.5 5.5 0 0 1-2.4 3.6v3h3.9c2.2-2.1 3.5-5.1 3.5-8.7z"/><path fill="#34a853" d="M12 24c3.2 0 6-1.1 8-2.9l-3.9-3c-1.1.7-2.5 1.2-4.1 1.2-3.1 0-5.8-2.1-6.7-5H1.3v3.1A12 12 0 0 0 12 24z"/><path fill="#fbbc05" d="M5.3 14.3a7.2 7.2 0 0 1 0-4.6V6.6H1.3a12 12 0 0 0 0 10.8l4-3.1z"/><path fill="#ea4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.3 6.6l4 3.1c.9-2.9 3.6-4.9 6.7-4.9z"/></svg>
+          Mit Google fortfahren
+        </button>
+      </div>
+
+      <div class="divider">oder mit eigenem Konto</div>
+
+      <form id="email-form" novalidate>
+        <label>E-Mail
+          <input id="email" type="email" autocomplete="email" required />
+        </label>
+        <label>Passwort
+          <input id="password" type="password" autocomplete="current-password" minlength="8" required />
+        </label>
+        <button class="primary" type="submit" id="submit-btn">Anmelden</button>
+      </form>
+
+      <p class="muted"><span id="switch-text">Noch kein Konto?</span> <button type="button" class="switch" id="switch-btn">Registrieren</button></p>
+    </section>
+
+    <section id="account-view" aria-labelledby="account-title" hidden style="display:flex; flex-direction:column; gap:1rem;">
+      <h1 id="account-title"><span>TGRAM</span> Konto</h1>
+      <p>Angemeldet als <strong id="account-name"></strong></p>
+      <div style="display:flex; flex-direction:column; gap:.4rem;">
+        <p class="muted">Verknüpftes TON-Wallet</p>
+        <code id="account-wallet">noch keins</code>
+        <button type="button" id="link-wallet-btn">Verbundenes Wallet aus TGRAM übernehmen</button>
+      </div>
+      <div class="row">
+        <a href="./index.html">Zurück zu TGRAM</a>
+        <button type="button" id="logout-btn">Abmelden</button>
+      </div>
+    </section>
+
+    <p id="msg" role="status" aria-live="polite"></p>
+  </main>
+
+  <script type="module">
+    import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+    const CONFIG_URL = "https://tgram-tau.vercel.app/api/public-config";
+    let cfg;
+    try {
+      const r = await fetch(CONFIG_URL, { signal: AbortSignal.timeout(8000) });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      cfg = await r.json();
+    } catch (e) {
+      document.getElementById("msg").textContent = "Login-Dienst gerade nicht erreichbar. Bitte später erneut versuchen.";
+      document.getElementById("msg").className = "error";
+      throw e;
+    }
+    const supabase = createClient(cfg.supabaseUrl, cfg.supabaseKey, {
+      auth: { flowType: "pkce", detectSessionInUrl: true, persistSession: true },
+    });
+
+    const $ = (id) => document.getElementById(id);
+    const redirectTo = window.location.origin + window.location.pathname;
+    let mode = "login";
+
+    function say(text, kind = "") { $("msg").textContent = text; $("msg").className = kind; }
+
+    function setMode(next) {
+      mode = next;
+      const signup = mode === "signup";
+      $("mode-title").textContent = signup ? "Registrieren" : "Anmelden";
+      $("submit-btn").textContent = signup ? "Konto erstellen" : "Anmelden";
+      $("switch-text").textContent = signup ? "Schon ein Konto?" : "Noch kein Konto?";
+      $("switch-btn").textContent = signup ? "Anmelden" : "Registrieren";
+      $("password").autocomplete = signup ? "new-password" : "current-password";
+      say("");
+    }
+    $("switch-btn").addEventListener("click", () => setMode(mode === "login" ? "signup" : "login"));
+
+    document.querySelectorAll("[data-provider]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: btn.dataset.provider,
+          options: { redirectTo, scopes: btn.dataset.provider === "azure" ? "email" : undefined },
+        });
+        if (error) {
+          btn.disabled = false;
+          say(/not enabled|unsupported provider/i.test(error.message)
+            ? "Dieser Login ist im Supabase-Projekt noch nicht freigeschaltet."
+            : "Anmeldung konnte nicht gestartet werden. Bitte erneut versuchen.", "err");
+        }
+      });
+    });
+
+    $("email-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = $("email").value.trim();
+      const password = $("password").value;
+      if (!email || password.length < 8) { say("Bitte E-Mail und ein Passwort mit mindestens 8 Zeichen eingeben.", "err"); return; }
+      $("submit-btn").disabled = true;
+      try {
+        if (mode === "signup") {
+          const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: redirectTo } });
+          if (error) {
+            if (/password/i.test(error.message)) say("Das Passwort ist zu schwach. Bitte ein längeres wählen.", "err");
+            else if (error.status === 429) say("Zu viele Versuche. Bitte später erneut.", "err");
+            else say("Registrierung fehlgeschlagen. Bitte erneut versuchen.", "err");
+          } else if (!data.session) {
+            say("Fast fertig: Bitte bestätige deine E-Mail über den Link, den wir dir geschickt haben.", "ok");
+          }
+        } else {
+          const { error } = await supabase.auth.signInWithPassword({ email, password });
+          if (error) {
+            if (/not confirmed/i.test(error.message)) say("Bitte bestätige zuerst deine E-Mail-Adresse.", "err");
+            else if (error.status === 429) say("Zu viele Versuche. Bitte später erneut.", "err");
+            else say("E-Mail oder Passwort ist falsch.", "err");
+          }
+        }
+      } catch {
+        say("Unerwarteter Fehler. Bitte erneut versuchen.", "err");
+      } finally {
+        $("submit-btn").disabled = false;
+      }
+    });
+
+    function connectedTonAddress() {
+      try {
+        const raw = localStorage.getItem("ton-connect-storage_bridge-connection") || localStorage.getItem("ton-connect-ui_wallet-info");
+        const parsed = raw ? JSON.parse(raw) : null;
+        const items = parsed?.connectEvent?.payload?.items || [];
+        return items.find((i) => i.name === "ton_addr")?.address || parsed?.account?.address || null;
+      } catch { return null; }
+    }
+
+    async function showAccount(user) {
+      $("auth-view").hidden = true;
+      $("account-view").hidden = false;
+      const meta = user.user_metadata || {};
+      $("account-name").textContent = meta.full_name || meta.user_name || user.email || "Nutzer";
+      const { data } = await supabase.from("profiles").select("ton_address").eq("id", user.id).maybeSingle();
+      $("account-wallet").textContent = data?.ton_address || "noch keins";
+    }
+
+    function showAuth() {
+      $("auth-view").hidden = false;
+      $("account-view").hidden = true;
+    }
+
+    $("link-wallet-btn").addEventListener("click", async () => {
+      const address = connectedTonAddress();
+      if (!address) { say("Kein verbundenes Wallet gefunden. Verbinde es zuerst in TGRAM über TonConnect.", "err"); return; }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { error } = await supabase.from("profiles").upsert({ id: user.id, ton_address: address });
+      if (error) {
+        say(error.code === "23505" ? "Dieses Wallet ist bereits mit einem anderen Konto verknüpft." : "Wallet konnte nicht verknüpft werden.", "err");
+      } else {
+        $("account-wallet").textContent = address;
+        say("Wallet verknüpft.", "ok");
+      }
+    });
+
+    $("logout-btn").addEventListener("click", async () => {
+      await supabase.auth.signOut();
+      say("Abgemeldet.", "ok");
+    });
+
+    supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) showAccount(session.user); else showAuth();
+    });
+  </script>
+</body>
+</html>
