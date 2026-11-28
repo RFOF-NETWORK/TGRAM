@@ -460,6 +460,11 @@
       <div class="list" id="contract-list"><p class="muted">Lade Status …</p></div>
     </div>
     <div class="card">
+      <h3>Vier Welten · AXF-Logik</h3>
+      <p class="muted">Welt 1 rechnet nach deiner Formel: Jede Ein- und Auszahlung geht zu 2×25 % in gesperrte Liquidität, zu 25 % in neue Menge und zu 25 % in den Preis. Start bei 0. Welt 2 sind die echten Bewegungen der Bot-Wallet auf TON. Welt 3 spiegelt jede Bewegung aus Welt 2 in Welt 1. Welt 4 ist das Ganze, AXF als ABillity + XP + FPS.</p>
+      <div id="worlds-list"><p class="muted">Lade Bewegungen …</p></div>
+    </div>
+    <div class="card">
       <h3>Bauplan TGRAM · 0–100 %</h3>
       <p class="muted">Was schlüsselfertig läuft und was noch fehlt. Stand wird bei jedem Release aktualisiert.</p>
       <div class="plan-bar" role="progressbar" aria-label="Fortschritt" aria-valuemin="0" aria-valuemax="100" id="plan-progress"><span></span></div>
@@ -1263,8 +1268,76 @@
   box.innerHTML = rows.join('');
   }
   
+  const BOT_WALLET = 'UQBg9Q1kUBfe5pRgguB5M2XzCSxwaZ0nIXRcovleeh-QSv27';
+  const AXF_MINTER = 'EQCwv00qHXTQecB8A7q0NCKSAHH7WHz_7aQCiPjPrQkc28X3';
+  const SINGLES = ['ABILLITY', 'XP', 'FPS'];
+
+  function applyAxfRule(state, amount) {
+    const price = state.supply > 0 ? (state.liquidity + state.reserve) / state.supply : 1;
+    state.liquidity += amount * 0.5;
+    state.reserve += amount * 0.25;
+    state.supply += (amount * 0.25) / price;
+    state.moves += 1;
+    return state;
+  }
+
+  async function loadBotMovements() {
+    const r = await fetch(TONCENTER.mainnet + '/transactions?account=' + BOT_WALLET + '&limit=100&sort=asc');
+    const j = await r.json();
+    const moves = [];
+    for (const tx of j.transactions || []) {
+      const inVal = Number(tx.in_msg && tx.in_msg.source ? tx.in_msg.value || 0 : 0) / 1e9;
+      if (inVal > 0) moves.push({ dir: 'ein', amount: inVal });
+      for (const m of tx.out_msgs || []) {
+        const outVal = Number(m.value || 0) / 1e9;
+        if (outVal > 0) moves.push({ dir: 'aus', amount: outVal });
+      }
+    }
+    return moves;
+  }
+
+  let worldsLoaded = false;
+  async function renderWorlds() {
+    const box = document.getElementById('worlds-list');
+    if (!box || worldsLoaded) return;
+    worldsLoaded = true;
+    let moves = [];
+    let axfOnchain = null;
+    try { moves = await loadBotMovements(); } catch (e) {}
+    try {
+      const jr = await fetch('https://tonapi.io/v2/jettons/' + AXF_MINTER);
+      const jj = await jr.json();
+      axfOnchain = Number(jj.total_supply || 0) / 1e9;
+    } catch (e) {}
+
+    const worlds = {};
+    for (const sym of SINGLES) {
+      worlds[sym] = { liquidity: 0, reserve: 0, supply: 0, moves: 0 };
+      for (const mv of moves) applyAxfRule(worlds[sym], mv.amount);
+    }
+    const total = SINGLES.reduce((acc, s) => ({
+      liquidity: acc.liquidity + worlds[s].liquidity,
+      reserve: acc.reserve + worlds[s].reserve,
+      supply: acc.supply + worlds[s].supply
+    }), { liquidity: 0, reserve: 0, supply: 0 });
+
+    const fmt = (n) => n.toLocaleString('de-DE', { maximumFractionDigits: 6 });
+    const priceOf = (w) => w.supply > 0 ? (w.liquidity + w.reserve) / w.supply : 0;
+    const row = (title, detail, right) => '<div class="check-row"><span><strong>' + esc(title) + '</strong><br><span class="muted">' + esc(detail) + '</span></span><span class="st ok">' + esc(right) + '</span></div>';
+
+    const ins = moves.filter(m => m.dir === 'ein').length;
+    const outs = moves.length - ins;
+    let html = '';
+    html += row('Welt 1 · deine Logik', SINGLES.map(s => s + ': Preis ' + fmt(priceOf(worlds[s])) + ' · Menge ' + fmt(worlds[s].supply) + ' · Liquidität ' + fmt(worlds[s].liquidity) + ' TON').join(' | '), 'Formel');
+    html += row('Welt 2 · TON on-chain', 'Bot-Wallet: ' + ins + ' Einzahlungen, ' + outs + ' Auszahlungen · AXF-Menge on-chain: ' + (axfOnchain === null ? 'unbekannt' : fmt(axfOnchain)) + ' · ABILLITY, XP, FPS noch nicht deployed', 'Chain');
+    html += row('Welt 3 · Spiegel', moves.length + ' Bewegungen aus Welt 2 in Welt 1 gespiegelt, jede nach 2×25 % / 25 % / 25 %', 'Spiegel');
+    html += row('Welt 4 · Ganzes (AXF)', 'Preis ' + fmt(priceOf(total)) + ' · Menge ' + fmt(total.supply) + ' · gesperrte Liquidität ' + fmt(total.liquidity) + ' TON · Preis-Reserve ' + fmt(total.reserve) + ' TON', 'AXF');
+    box.innerHTML = html;
+  }
+
   function renderPlan() {
   renderContracts();
+  renderWorlds();
   const w = { done: 1, wip: 0.5, todo: 0 };
       const pct = Math.round(PLAN.reduce((s, [st]) => s + w[st], 0) / PLAN.length * 100);
       const bar = document.getElementById('plan-progress');
