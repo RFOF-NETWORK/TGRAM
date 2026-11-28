@@ -149,11 +149,12 @@ function paymentLink(subject, ton = 1) {
   return `ton://transfer/${VAULT}?amount=${Math.round(ton * 1e9)}&text=${encodeURIComponent(`TGRAM:${subject}`)}`;
 }
 
-async function askAI(prompt, extension) {
+async function askAI(prompt, extension, opts = {}) {
   const base = "Du bist TGRAM Copilot fuer TON, NEC, BBC und AXF auf der TGRAM Plattform. Antworte kurz und praezise auf Deutsch.";
-  const system = extension?.persona
+  const persona = extension?.persona
     ? `${base}\nDu laeufst als KI-Extension "${extension.name}" eines Nutzers. Persona des Nutzers:\n${extension.persona}`
     : base;
+  const system = opts.system || (opts.context ? `${persona}\n${opts.context}` : persona);
   const token = process.env.VERCEL_OIDC_TOKEN || process.env.AI_GATEWAY_API_KEY;
   if (token) {
     try {

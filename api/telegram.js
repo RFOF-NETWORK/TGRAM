@@ -6,6 +6,7 @@ const { AXF_PER_STAR, isAxfPayload, axfClaims, axfInvoice } = require("./_axf");
 const userdb = require("./_userdb");
 const cells = require("./_cells");
 const { getExtension } = require("./extension");
+const github = require("./_github");
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || "";
@@ -90,7 +91,106 @@ const axfStatus = (c) =>
   `Dein AXF: ${c.axf} (aus ${c.stars} Stars, ${c.payments} Kaeufe) · ` +
   (c.onchain ? `on-chain ueber Minter ${c.minter}` : "reserviert, Lieferung nach AXF-Deploy");
 
-const BUILTIN = ["start", "app", "help", "balance", "buy", "price", "game", "ask", "stars", "axf", "cmd"];
+const BUILTIN = ["start", "app", "help", "balance", "buy", "price", "game", "ask", "stars", "axf", "cmd", "github", "repo", "ls", "cat", "code"];
+
+const CODE_SYSTEM =
+  "Du bist ein praeziser Code-Editor. Du bekommst eine Datei und eine Anweisung. " +
+  "Gib AUSSCHLIESSLICH den vollstaendigen neuen Dateiinhalt zurueck, ohne Erklaerung und ohne Markdown-Codeblock.";
+const stripFence = s => String(s).trim().replace(/^```[\w-]*\n/, "").replace(/\n```\s*$/, "");
+
+async function githubCommand(chatId, uid, cmd, arg, msg, reply) {
+  const conn = await github.load(uid);
+  const ok = github.usable(conn);
+  const need = () => reply(chatId, "Erst GitHub verbinden: /github connect");
+  const needRepo = () => reply(chatId, "Erst ein Repo waehlen: /repo owner/name");
+
+  if (cmd === "/github") {
+    const [sub, ...p] = arg.split(" ");
+    if (sub === "token") {
+      await tg("deleteMessage", { chat_id: chatId, message_id: msg.message_id }).catch(() => {});
+      const login = await github.connectToken(uid, p.join(" ").trim());
+      return reply(chatId, `GitHub verbunden als ${login}. Deine Token-Nachricht wurde aus dem Chat geloescht.\nJetzt: /repo owner/name`);
+    }
+    if (sub === "connect") {
+      const device = await github.startDevice(uid).catch(e => ({ error: e.message }));
+      if (device?.code) {
+        return reply(chatId, `1. Oeffne ${device.url}\n2. Gib diesen Code ein: ${device.code}\n3. Danach hier auf "Bestaetigt" tippen.`, {
+          reply_markup: { inline_keyboard: [[{ text: "GitHub oeffnen", url: device.url }], [{ text: "Bestaetigt", callback_data: "gh:poll" }]] },
+        });
+      }
+      return reply(
+        chatId,
+        (device?.error ? `Device-Login fehlgeschlagen: ${device.error}\n\n` : "") +
+          "Verbinden per Token:\n1. GitHub > Settings > Developer settings > Fine-grained tokens\n" +
+          "2. Repo auswaehlen, Rechte: Contents + Pull requests = Read and write\n" +
+          "3. Hier senden: /github token <dein_token>\nDie Nachricht wird sofort geloescht, der Token verschluesselt gespeichert.",
+        { reply_markup: { inline_keyboard: [[{ text: "Token erstellen", url: "https://github.com/settings/personal-access-tokens/new" }]] } },
+      );
+    }
+    if (sub === "logout") {
+      await github.logout(uid);
+      return reply(chatId, "GitHub getrennt. Token geloescht.");
+    }
+    return reply(
+      chatId,
+      (ok ? `Verbunden als ${conn.login}${conn.repo ? ` · Repo ${conn.repo} (${conn.branch})` : " · kein Repo gewaehlt"}` : "Nicht mit GitHub verbunden.") +
+        "\n\n/github connect - verbinden\n/repo owner/name - Repo waehlen\n/ls [pfad] - Dateien\n/cat <pfad> - Datei lesen\n" +
+        "/code <pfad> <anweisung> - KI aendert Datei und oeffnet einen Pull Request\n/github logout - trennen",
+    );
+  }
+  if (!ok) return need();
+  if (cmd === "/repo") {
+    if (!arg) return reply(chatId, conn.repo ? `Aktives Repo: ${conn.repo} (${conn.branch})` : "Nutzung: /repo owner/name");
+    const r = await github.setRepo(uid, conn, arg.trim());
+    return reply(chatId, `Aktives Repo: ${r.full_name} (Branch ${r.default_branch}).`);
+  }
+  if (!conn.repo) return needRepo();
+  if (cmd === "/ls") {
+    const items = await github.list(conn, arg);
+    return reply(chatId, `${conn.repo}/${arg || ""}\n` + items.slice(0, 80).join("\n") + (items.length > 80 ? `\n... +${items.length - 80}` : ""));
+  }
+  if (cmd === "/cat") {
+    if (!arg) return reply(chatId, "Nutzung: /cat <pfad>");
+    const f = await github.readFile(conn, arg);
+    return reply(chatId, `${arg}:\n${f.text.slice(0, 3200)}${f.text.length > 3200 ? "\n... (gekuerzt)" : ""}`);
+  }
+  if (cmd === "/code") {
+    const [path, ...instr] = arg.split(" ");
+    const instruction = instr.join(" ").trim();
+    if (!path || !instruction) return reply(chatId, "Nutzung: /code <pfad> <anweisung>\nz. B. /code README.md Fuege einen Abschnitt Installation hinzu");
+    await tg("sendChatAction", { chat_id: chatId, action: "typing" });
+    let current = "";
+    try { current = (await github.readFile(conn, path)).text; } catch (e) { if (!/404/.test(e.message)) throw e; }
+    const content = stripFence(
+      await askAI(`Datei: ${path}\n${current ? `Aktueller Inhalt:\n${current}` : "(neue Datei)"}\n\nAnweisung: ${instruction}`, null, { system: CODE_SYSTEM }),
+    );
+    if (!content.trim()) return reply(chatId, "Die KI hat keinen Inhalt geliefert. Bitte Anweisung praeziser formulieren.");
+    const pr = await github.proposeChange(conn, path, content + (content.endsWith("\n") ? "" : "\n"), `${path}: ${instruction}`.slice(0, 200));
+    return reply(chatId, `Pull Request #${pr.number} in ${conn.repo} erstellt (Branch ${pr.branch}).\nPruefen und dann mergen:`, {
+      reply_markup: { inline_keyboard: [[{ text: `PR #${pr.number} ansehen`, url: pr.url }], [{ text: "Mergen", callback_data: `gh:merge:${pr.number}` }]] },
+    });
+  }
+}
+
+async function githubCallback(q, chatId) {
+  const uid = String(q.from.id);
+  const [, op, num] = String(q.data).split(":");
+  const edit = text => tg("editMessageText", { chat_id: chatId, message_id: q.message.message_id, text });
+  try {
+    if (op === "poll") {
+      const r = await github.finishDevice(uid);
+      return r.ok ? edit(`GitHub verbunden als ${r.login}. Jetzt: /repo owner/name`) : tg("sendMessage", { chat_id: chatId, text: r.msg });
+    }
+    if (op === "merge" && /^\d+$/.test(num || "")) {
+      const conn = await github.load(uid);
+      if (!github.usable(conn) || !conn.repo) return edit("Nicht verbunden oder kein Repo gewaehlt.");
+      const sha = await github.mergePR(conn, Number(num));
+      return edit(`PR #${num} in ${conn.repo} gemergt (${sha.slice(0, 7)}).`);
+    }
+  } catch (e) {
+    return tg("sendMessage", { chat_id: chatId, text: `GitHub-Fehler: ${e.message}` });
+  }
+}
 const NAME_RE = /^[a-z][a-z0-9_]{1,30}$/;
 
 // Per-chat sub-commands are stored by Telegram itself (setMyCommands, chat scope); the
@@ -111,6 +211,7 @@ async function handleCallback(q) {
   const chatId = q.message?.chat?.id;
   const [, op, name] = String(q.data || "").split(":");
   await tg("answerCallbackQuery", { callback_query_id: q.id });
+  if (chatId && String(q.data || "").startsWith("gh:")) return githubCallback(q, chatId);
   if (!chatId || op === "deny" || !NAME_RE.test(name || "")) {
     return tg("editMessageText", { chat_id: chatId, message_id: q.message.message_id, text: "Abgelehnt." });
   }
@@ -165,12 +266,12 @@ async function handle(msg) {
   if (cmd === "/speichern") {
     const [key, ...val] = arg.split(" ");
     const k = (key || "").toLowerCase();
-    if (!userdb.KEY_RE.test(k) || !val.join(" ").trim()) return reply(chatId, "Nutzung: /speichern <name> <text> (name: a-z, 0-9, _ -)");
+    if (!userdb.KEY_RE.test(k) || k.startsWith("_") || !val.join(" ").trim()) return reply(chatId, "Nutzung: /speichern <name> <text> (name: a-z, 0-9, _ -, nicht mit _ beginnen)");
     await userdb.setData(uid, k, val.join(" ").trim());
     return reply(chatId, `Gespeichert in deiner Datenbank: ${k}`);
   }
   if (cmd === "/laden") {
-    const row = await userdb.getData(uid, arg.toLowerCase());
+    const row = arg.startsWith("_") ? null : await userdb.getData(uid, arg.toLowerCase());
     return reply(chatId, row ? `${arg}:\n${row.value.text}` : "Kein Eintrag mit diesem Namen.");
   }
   if (cmd === "/loeschen") {
@@ -185,6 +286,15 @@ async function handle(msg) {
       chatId,
       `Admin-Uebersicht\nNutzer: ${s.users} (aktiv 24h: ${s.active24h})\nNachrichten: ${s.messages} (KI-Antworten: ${s.aiReplies}) | Zeichen: ${s.chars} | Cells: ${s.cells}\nKI-Punkte offen: ${s.points} | Echte Stars ausgezahlt: ${s.stars} | AXF gesamt: ${s.axf}`,
     );
+  }
+
+  if (["/github", "/repo", "/ls", "/cat", "/code"].includes(cmd)) {
+    if (msg.chat.type !== "private") return reply(chatId, "GitHub-Befehle nur im privaten Chat mit dem Bot.");
+    try {
+      return await githubCommand(chatId, uid, cmd, arg, msg, reply);
+    } catch (e) {
+      return reply(chatId, `GitHub-Fehler: ${e.message}`);
+    }
   }
 
   if (cmd === "/axf") {
@@ -241,6 +351,7 @@ async function handle(msg) {
         "/stars <n> - Credits mit Telegram Stars kaufen (1 Star = 1 Credit)",
         `/axf <n> - AXF mit Stars kaufen (1 Star = ${AXF_PER_STAR} AXF), /axf zeigt deinen AXF-Stand`,
         "/cmd add|remove|list - eigene Sub-Befehle (nur nach Erlauben)",
+        "/github - GitHub verbinden, dann /repo, /ls, /cat, /code (KI codet per Pull Request)",
         "/meinedaten - deine eigene Datenbank ansehen",
         "/speichern <name> <text>, /laden <name>, /loeschen - eigene Daten verwalten",
         `/game - Mini Game starten (${PRICING.cost.game ? PRICING.cost.game + " Credit" : "kostenlos"})`,
@@ -283,7 +394,12 @@ async function handle(msg) {
   if (!c.ok) return needCredits(chatId, uid, c);
   await tg("sendChatAction", { chat_id: chatId, action: "typing" });
   const extension = await getExtension(uid).catch(() => null);
-  const [answer, proof] = await Promise.all([askAI(question, extension), signAIReply(uid)]);
+  const conn = await github.load(uid).catch(() => null);
+  const context = github.usable(conn)
+    ? `Der Nutzer ist mit GitHub verbunden als ${conn.login}${conn.repo ? `, aktives Repo ${conn.repo}` : ""}. ` +
+      "Du KANNST in seinem Repo coden: verweise auf /ls, /cat <pfad> und /code <pfad> <anweisung> (erstellt einen Pull Request, Mergen per Knopf)."
+    : "Du kannst in GitHub-Repos des Nutzers coden, sobald er sich mit /github connect verbindet. Sag nie, dass das unmoeglich ist.";
+  const [answer, proof] = await Promise.all([askAI(question, extension, { context }), signAIReply(uid)]);
   const reward = rewardAI(uid);
   const cost = cells.chain(question + String(answer));
   const answerChars = String(answer).length;
