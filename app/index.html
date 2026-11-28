@@ -72,6 +72,20 @@
     .explorer-pick a { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; background: #0b111e; border: 1px solid var(--border); border-radius: 10px; padding: 0.8rem; color: var(--text); text-decoration: none; }
     .explorer-pick a:hover { border-color: var(--primary); color: var(--primary); }
     dialog[open] { animation: pop 0.18s ease-out; }
+  .token-pick { flex: 1; min-height: 44px; border-radius: 12px; border: 1px solid var(--border); background: #0b111e; color: var(--text); font-weight: 600; font-size: 1rem; cursor: pointer; }
+  .token-pick:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  dialog.sheet { width: min(480px, 100vw); max-height: 82vh; margin: auto auto 0; border-radius: 16px 16px 0 0; display: flex; flex-direction: column; gap: 0.5rem; padding: 0.75rem 1rem 1rem; }
+  dialog.sheet:not([open]) { display: none; }
+  .sheet-head { display: flex; align-items: center; justify-content: space-between; }
+  .sheet-head h3 { margin: 0; }
+  .sheet-list { overflow-y: auto; display: flex; flex-direction: column; min-height: 200px; }
+  .sheet-group { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted, #8a94a6); padding: 0.75rem 0 0.25rem; }
+  .sheet-row { display: flex; align-items: center; gap: 0.75rem; min-height: 52px; padding: 0.4rem 0.25rem; border: 0; border-bottom: 1px solid var(--border); background: none; color: var(--text); text-align: left; cursor: pointer; width: 100%; font: inherit; }
+  .sheet-row:hover, .sheet-row:focus-visible { background: rgba(255,255,255,0.04); outline: none; }
+  .sheet-row img, .sheet-row .ph { width: 32px; height: 32px; border-radius: 50%; flex: none; background: #1a2333; object-fit: cover; }
+  .sheet-row .meta { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+  .sheet-row .meta span:last-child { font-size: 0.8rem; color: var(--muted, #8a94a6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sheet-row .right { font-size: 0.85rem; text-align: right; }
     @keyframes pop { from { transform: translateY(12px) scale(0.97); opacity: 0; } to { transform: none; opacity: 1; } }
 
     #chart { height: 260px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); background: #0b111e; }
@@ -215,9 +229,13 @@
       <h3>Swap</h3>
       <p class="muted">Swap über STON.fi DEX v2. TON-Swaps: 1 % Plattform-Gebühr on-chain an den TGRAM Vault. Jetton-Swaps (NEC/BBC/AXF): die Plattform-Gebühr übernimmt @toncoing_bot.</p>
       <div class="input-group">
-        <select id="dex-from" aria-label="Von" onchange="updateDexFee()"><option>TON</option><option>NEC</option><option>BBC</option><option>AXF</option></select>
-        <select id="dex-to" aria-label="Nach"><option>NEC</option><option>BBC</option><option>AXF</option><option>TON</option></select>
+        <input type="hidden" id="dex-from" value="TON" />
+        <input type="hidden" id="dex-to" value="NEC" />
+        <button type="button" class="token-pick" id="dex-from-btn" onclick="openTokenSheet('from')" aria-label="Von-Token wählen">TON</button>
+        <button type="button" class="token-pick" onclick="flipDex()" aria-label="Richtung tauschen">⇄</button>
+        <button type="button" class="token-pick" id="dex-to-btn" onclick="openTokenSheet('to')" aria-label="Nach-Token wählen">NEC</button>
       </div>
+      <p class="muted" id="dex-asset-count" style="margin:0 0 0.5rem;">Token-Liste wird von STON.fi geladen...</p>
       <input type="number" id="dex-amount" placeholder="Betrag..." oninput="updateDexFee()" aria-label="Betrag" />
       <div class="token-balance"><span>Verfügbar:</span><span id="dex-avail">–</span></div>
       <div class="token-balance"><span id="dex-fee-label">Plattform-Gebühr 1 %:</span><span id="dex-fee">0.0000</span></div>
@@ -428,6 +446,12 @@
     <button class="btn btn-ghost" type="button" onclick="this.closest('dialog').close('deny')">Ablehnen</button>
   </dialog>
 
+  <dialog id="token-sheet" class="sheet" aria-labelledby="token-sheet-title">
+    <div class="sheet-head"><h3 id="token-sheet-title">Token wählen</h3><button type="button" class="chip" onclick="document.getElementById('token-sheet').close()">Fertig</button></div>
+    <input id="token-search" type="search" placeholder="Suchen: Name, Symbol oder Adresse" aria-label="Token suchen" oninput="renderTokenSheet()" autocomplete="off" />
+    <div id="token-sheet-list" class="sheet-list" role="listbox" aria-labelledby="token-sheet-title"></div>
+  </dialog>
+
   <dialog id="send-dialog" aria-labelledby="send-title">
     <h3 id="send-title">Senden</h3>
     <select id="send-token" aria-label="Token" style="margin-bottom:0.5rem;"><option value="TON">TON</option></select>
@@ -527,6 +551,8 @@
 
     function updateDexFee() {
       const from = document.getElementById('dex-from').value;
+      document.getElementById('dex-from-btn').textContent = from;
+      document.getElementById('dex-to-btn').textContent = document.getElementById('dex-to').value;
       const amt = Number(document.getElementById('dex-amount').value) || 0;
       const rate = feeRate(from);
       document.getElementById('dex-fee-label').textContent = rate ? 'Plattform-Gebühr 1 %:' : 'Plattform-Gebühr (übernimmt @toncoing_bot):';
@@ -791,18 +817,40 @@
       document.getElementById('lp-result').innerHTML = steps.join('') + `<p class="muted" style="margin:0;">Supply ${esc(meta.total_supply)} ${esc(symbol)} · Jetton-Gebühren übernimmt @toncoing_bot.</p>`;
     }
 
+    // STON.fi asset query (JSON body). Tradable = has liquidity, or held by the user, minus flagged scams.
+    const DEX_CONDITION = '(asset:liquidity:very_high | asset:liquidity:high | asset:liquidity:medium | asset:liquidity:low | asset:wallet_has_balance | asset:essential) & !asset:blacklisted & !asset:fake & !asset:honeypot';
+    const dexAssets = new Map();
+    let dexAssetsFor = null;
+    async function loadDexAssets() {
+      const key = userAddress || '';
+      if (dexAssetsFor === key && dexAssets.size) return;
+      const body = { condition: DEX_CONDITION };
+      if (userAddress) body.wallet_address = userAddress;
+      const d = await (await fetch("https://api.ston.fi/v1/assets/query", {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+      })).json();
+      dexAssets.clear();
+      for (const a of d.asset_list || []) {
+        const m = a.meta || {};
+        let sym = m.symbol || a.symbol;
+        if (!sym) continue;
+        if (a.kind === 'Ton') sym = 'TON';
+        if (dexAssets.has(sym)) sym = `${sym}·${a.contract_address.slice(-4)}`;
+        dexAssets.set(sym, { addr: a.kind === 'Ton' ? 'TON' : a.contract_address, name: m.display_name || sym, img: m.image_url, price: Number(a.dex_price_usd || 0), pop: Number(a.popularity_index || 0) });
+      }
+      dexAssetsFor = key;
+      const c = document.getElementById('dex-asset-count');
+      if (c) c.textContent = `${dexAssets.size} handelbare Token von STON.fi + deine eigenen Token`;
+    }
+
     let poolsLoaded = false;
     async function loadPools() {
       if (poolsLoaded) return;
       const el = document.getElementById("pool-list");
       try {
-        const d = await (await fetch("https://api.ston.fi/v1/assets/query", {
-          method: "POST",
-          headers: { "content-type": "application/x-www-form-urlencoded" },
-          body: "condition=" + encodeURIComponent("asset:popular") + "&limit=8",
-        })).json();
-        const assets = (d.asset_list || []).slice(0, 8);
-        el.innerHTML = assets.map(a => `<div class="list-row"><span>${esc(a.symbol)}/TON</span><span>${a.dex_price_usd ? "$" + Number(a.dex_price_usd).toFixed(4) : "–"}</span></div>`).join("")
+        await loadDexAssets();
+        const top = [...dexAssets.entries()].filter(([s]) => s !== 'TON').sort((a, b) => b[1].pop - a[1].pop).slice(0, 8);
+        el.innerHTML = top.map(([s, a]) => `<div class="list-row"><span>${esc(s)}/TON</span><span>${a.price ? "$" + a.price.toFixed(4) : "–"}</span></div>`).join("")
           || '<p class="muted">Keine Pools gefunden.</p>';
         poolsLoaded = true;
       } catch (e) {
@@ -948,8 +996,51 @@
         try { await sendTon(TGRAM_VAULT, fee); }
         catch (e) { return alert("Gebühr nicht bezahlt, Swap abgebrochen: " + e.message); }
       }
-      const asset = s => s === "TON" ? "TON" : (jettons[s] ? jettons[s].master : s);
+      const asset = s => s === "TON" ? "TON" : (jettons[s]?.master || dexAssets.get(s)?.addr || s);
       window.open(`https://app.ston.fi/swap?ft=${encodeURIComponent(asset(from))}&tt=${encodeURIComponent(asset(to))}&fa=${encodeURIComponent(net.toFixed(4))}`, "_blank", "noopener");
+    }
+
+    let sheetSide = 'from';
+    async function openTokenSheet(side) {
+      sheetSide = side;
+      document.getElementById('token-search').value = '';
+      document.getElementById('token-sheet').showModal();
+      renderTokenSheet();
+      try { await loadDexAssets(); renderTokenSheet(); } catch (e) {}
+    }
+
+    function renderTokenSheet() {
+      const q = document.getElementById('token-search').value.trim().toLowerCase();
+      const hit = (s, name, addr) => !q || s.toLowerCase().includes(q) || (name || '').toLowerCase().includes(q) || (addr || '').toLowerCase() === q;
+      const row = (s, sub, right, img) => `<button type="button" role="option" class="sheet-row" data-sym="${esc(s)}">${img ? `<img src="${esc(img)}" alt="" loading="lazy" />` : '<span class="ph" aria-hidden="true"></span>'}<span class="meta"><strong>${esc(s)}</strong><span>${esc(sub)}</span></span><span class="right">${esc(right)}</span></button>`;
+      const shown = new Set();
+      const mine = [['TON', { name: 'Toncoin (GRAM)', balance: null }], ...Object.entries(jettons).filter(([, t]) => t.group !== 'scam')]
+        .filter(([s, t]) => hit(s, t.name, t.master));
+      const eco = Object.keys(ECO_ALIASES).filter(s => !ecoJetton(s) && hit(s, s));
+      const mineHtml = mine.map(([s, t]) => { shown.add(s); return row(s, t.group === 'own' ? `${t.name} · eigener Token` : t.group === 'lp' ? `${t.name} · LP` : t.name, t.balance == null ? document.getElementById('stake-ton').textContent : formatAmount(t.balance), dexAssets.get(s)?.img); }).join('')
+        + eco.map(s => { shown.add(s); return row(s, 'RFOF-Ökosystem · noch nicht geminted', '0'); }).join('');
+      const all = [...dexAssets.entries()].filter(([s, a]) => !shown.has(s) && hit(s, a.name, a.addr)).sort((a, b) => b[1].pop - a[1].pop);
+      const MAX = 150;
+      const allHtml = all.slice(0, MAX).map(([s, a]) => row(s, a.name, a.price ? '$' + (a.price < 0.01 ? a.price.toLocaleString('en-US', { maximumSignificantDigits: 2, maximumFractionDigits: 12 }) : a.price.toFixed(4)) : '', a.img)).join('');
+      document.getElementById('token-sheet-list').innerHTML =
+        (mineHtml ? `<div class="sheet-group">Meine Token & RFOF-Ökosystem</div>${mineHtml}` : '')
+        + `<div class="sheet-group">Alle Telegram/TON-Token (STON.fi) · ${all.length}</div>`
+        + (allHtml || `<p class="muted">${dexAssets.size ? 'Kein Treffer.' : 'Lade Token-Liste...'}</p>`)
+        + (all.length > MAX ? `<p class="muted">${all.length - MAX} weitere: Suche verfeinern.</p>` : '');
+    }
+
+    document.getElementById('token-sheet-list').addEventListener('click', e => {
+      const b = e.target.closest('[data-sym]');
+      if (!b) return;
+      document.getElementById(sheetSide === 'from' ? 'dex-from' : 'dex-to').value = b.dataset.sym;
+      document.getElementById('token-sheet').close();
+      updateDexFee();
+    });
+
+    function flipDex() {
+      const f = document.getElementById('dex-from'), t = document.getElementById('dex-to');
+      [f.value, t.value] = [t.value, f.value];
+      updateDexFee();
     }
 
     function executeDexSwap() {
