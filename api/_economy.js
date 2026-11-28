@@ -171,7 +171,7 @@ async function askAI(prompt) {
   return (await r.text()).trim();
 }
 
-// Latest real transaction of the bot wallet that covers free AI usage.
+// Latest vault transaction, which is not necessarily a payment for AI usage.
 async function botLatestTx() {
   const lite = await latestTx(VAULT);
   if (lite) return lite;
@@ -184,9 +184,7 @@ async function botLatestTx() {
   return t ? { hash: t.hash, utime: t.utime, fee: Number(t.total_fees || 0) / 1e9 } : null;
 }
 
-// Value reward for AI interactions (instead of a referral reward): every answer the bot
-// pays for puts value into circulation, and the user is credited Stars-points for it.
-// Per-instance like `usage`; plug a DB here for persistence across serverless instances.
+// Temporary per-instance interaction points; these are not Telegram Stars or on-chain assets.
 const AI_REWARD_STARS = Number(process.env.TGRAM_AI_REWARD_STARS || 1);
 const rewards = new Map();
 function rewardAI(subject) {
