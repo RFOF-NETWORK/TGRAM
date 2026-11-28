@@ -40,18 +40,19 @@ async function handle(msg) {
   const arg = rest.join(" ").trim();
 
   if (cmd === "/start" || cmd === "/app") {
-    return reply(chatId, "Willkommen bei TGRAM. Wallet verbinden, Credits aufladen, KI, DEX und Mini Game nutzen.", openAppKeyboard);
+    return reply(chatId, "Willkommen bei TGRAM. Schreib mir einfach - die KI ist kostenlos. Mini App, DEX (1 % Gebuehr) und Mini Game ueber den Knopf.", openAppKeyboard);
   }
   if (cmd === "/help") {
     return reply(
       chatId,
       [
         "/app - Mini App oeffnen",
-        `/ask <Frage> - TGRAM KI (${PRICING.cost.ai} Credits)`,
-        "/balance - Credits anzeigen (kostenlos)",
-        "/buy - Credits aufladen (kostenlos)",
-        `/price - Gebuehren & Preise (kostenlos)`,
-        `/game - Mini Game starten (${PRICING.cost.game} Credit)`,
+        `/ask <Frage> - TGRAM KI (${PRICING.cost.ai ? PRICING.cost.ai + " Credits" : "kostenlos"})`,
+        "Oder einfach eine Nachricht schreiben - die KI antwortet.",
+        "/balance - Credits anzeigen",
+        "/buy - Value-Support: TON/NEC/BBC/AXF an den Vault",
+        "/price - Gebuehren & Preise",
+        `/game - Mini Game starten (${PRICING.cost.game ? PRICING.cost.game + " Credit" : "kostenlos"})`,
       ].join("\n"),
     );
   }
@@ -73,7 +74,7 @@ async function handle(msg) {
   if (cmd === "/game") {
     const c = await charge(uid, "game");
     if (!c.ok) return needCredits(chatId, uid, c);
-    return reply(chatId, `Game gestartet (-${c.cost} Credit, Rest ${c.available}).`, openAppKeyboard);
+    return reply(chatId, c.free ? "Game gestartet." : `Game gestartet (-${c.cost} Credit, Rest ${c.available}).`, openAppKeyboard);
   }
 
   const question = cmd === "/ask" ? arg : text.startsWith("/") ? "" : text;
@@ -82,7 +83,7 @@ async function handle(msg) {
   if (!c.ok) return needCredits(chatId, uid, c);
   await tg("sendChatAction", { chat_id: chatId, action: "typing" });
   const answer = await askAI(question);
-  return reply(chatId, `${answer}\n\n(-${c.cost} Credits, Rest ${c.available})`);
+  return reply(chatId, c.free ? answer : `${answer}\n\n(-${c.cost} Credits, Rest ${c.available})`);
 }
 
 module.exports = async (req, res) => {
