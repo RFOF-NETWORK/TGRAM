@@ -89,6 +89,20 @@
     .msg.user { align-self: flex-end; background: #0c4a6e; border-bottom-right-radius: 4px; }
     .msg.bot { align-self: flex-start; background: #0b111e; border: 1px solid var(--border); border-bottom-left-radius: 4px; }
     .msg.sys { align-self: center; color: var(--muted); font-size: 0.75rem; background: none; }
+    .tx-foot { margin-top: 0.5rem; padding-top: 0.4rem; border-top: 1px solid var(--border); font-size: 0.72rem; color: var(--muted); white-space: normal; }
+    .tx-foot a { color: var(--primary); }
+    .embed { display: flex; flex-direction: column; gap: 0.5rem; }
+    .embed iframe { width: 100%; height: 70vh; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); }
+    .embed-bar { display: flex; gap: 0.5rem; align-items: center; justify-content: space-between; font-size: 0.78rem; color: var(--muted); }
+    .embed-bar a { color: var(--primary); }
+    .major { border: 1px solid var(--primary); text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.4rem; padding: 1.2rem 1rem; }
+    .major-title { font-family: monospace; letter-spacing: 0.2em; color: var(--warn); font-weight: bold; font-size: 0.85rem; }
+    .major-badge { width: 5.5rem; height: 5.5rem; border-radius: 50%; border: 2px solid var(--warn); display: flex; align-items: center; justify-content: center; color: var(--warn); margin: 0.4rem 0; }
+    .major-badge svg { width: 2.6rem; height: 2.6rem; }
+    .major-stat { font-family: monospace; font-size: 0.95rem; }
+    .major-stat strong { color: var(--warn); }
+    .major-actions { display: flex; gap: 0.5rem; width: 100%; margin-top: 0.4rem; }
+    .major-actions .btn { margin: 0; }
     .msg pre { background: #02060c; border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem; overflow-x: auto; margin: 0.4rem 0 0; white-space: pre; }
     .composer { display: flex; gap: 0.5rem; align-items: flex-end; margin-top: 0.6rem; }
     .composer textarea { flex: 1; resize: none; min-height: 44px; max-height: 140px; padding: 0.7rem; border-radius: 10px; border: 1px solid var(--border); background: #0b111e; color: var(--text); font-family: monospace; font-size: 0.9rem; }
@@ -229,6 +243,26 @@
 
   <!-- ================= LAUNCHPAD ================= -->
   <section id="view-launchpad" data-view class="hidden" aria-label="TLPFG Token Launchpad for Games">
+    <div class="card major" aria-label="TLPFG Spielerstatus">
+      <div class="major-title">TLPFG · GAME HUB</div>
+      <div class="major-badge" aria-hidden="true"><svg class="icon"><use href="#i-rocket"/></svg></div>
+      <div class="major-stat">RANG: <strong id="major-rank">BRONZE</strong></div>
+      <div class="major-stat">PUNKTE: <strong id="major-points">0</strong></div>
+      <div class="muted" id="major-hint">Punkte = On-Chain-Transaktionen + Mining-XP</div>
+      <div class="major-actions">
+        <button class="btn" type="button" onclick="showTab('staking')">Boost (Mining)</button>
+        <a class="btn btn-ghost" id="major-invite" target="_blank" rel="noopener noreferrer" href="https://t.me/share/url?url=https%3A%2F%2Ft.me%2Ftoncoing_bot">Freunde einladen</a>
+      </div>
+    </div>
+    <div class="switch" role="group" aria-label="Launchpad Ansicht" style="margin-bottom:1rem;">
+      <button type="button" data-pane-btn="lp:launch" aria-pressed="true" onclick="setPane('lp','launch')">Launch</button>
+      <button type="button" data-pane-btn="lp:toncoin" aria-pressed="false" onclick="setPane('lp','toncoin')">TON-Coin dApp</button>
+    </div>
+    <div class="card embed hidden" data-pane="lp:toncoin">
+      <div class="embed-bar"><span>RFOF-NETWORK/TON-Coin</span><a href="https://rfof-network.github.io/TON-Coin/" target="_blank" rel="noopener noreferrer">Extern öffnen</a></div>
+      <iframe title="TON-Coin dApp" data-src="https://rfof-network.github.io/TON-Coin/" loading="lazy" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"></iframe>
+    </div>
+    <div data-pane="lp:launch">
     <form class="card" id="tlpfg-form" onsubmit="event.preventDefault(); launchToken();">
       <h3>TLPFG · Token Launchpad for Games</h3>
       <p class="muted" style="margin-top:0;">Launche einen eigenen Jetton (TEP-74/TEP-64) zusammen mit deiner Game-Mini-App.</p>
@@ -265,6 +299,7 @@
         <div class="list-row"><span>TON-Coin: Jetton + STON.fi dApp</span><a href="https://rfof-network.github.io/TON-Coin/" target="_blank" rel="noopener noreferrer">dApp</a></div>
         <div class="list-row"><span>github.ton: Wallet-Core, PRAIAI</span><a href="https://rfof-network.github.io/rfof-network.github.ton/" target="_blank" rel="noopener noreferrer">Seite</a></div>
       </div>
+    </div>
     </div>
   </section>
 
@@ -309,7 +344,15 @@
   <!-- ================= VERLAUF ================= -->
   <!-- ================= TC · TGRAM COPILOT ================= -->
   <section id="view-tc" data-view class="hidden" aria-label="TGRAM Copilot">
-    <div class="card chat-card">
+    <div class="switch" role="group" aria-label="Copilot Ansicht" style="margin-bottom:1rem;">
+      <button type="button" data-pane-btn="tc:chat" aria-pressed="true" onclick="setPane('tc','chat')">Copilot</button>
+      <button type="button" data-pane-btn="tc:praiai" aria-pressed="false" onclick="setPane('tc','praiai')">PRAIAI · github.ton</button>
+    </div>
+    <div class="card embed hidden" data-pane="tc:praiai">
+      <div class="embed-bar"><span>RFOF-NETWORK/rfof-network.github.ton</span><a href="https://rfof-network.github.io/rfof-network.github.ton/" target="_blank" rel="noopener noreferrer">Extern öffnen</a></div>
+      <iframe title="PRAIAI rfof-network.github.ton" data-src="https://rfof-network.github.io/rfof-network.github.ton/" loading="lazy" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"></iframe>
+    </div>
+    <div class="card chat-card" data-pane="tc:chat">
       <h3 style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.3rem;"><svg class="icon"><use href="#i-bot"/></svg>TGRAM Copilot</h3>
       <div class="token-balance"><span>KI vom Bot bezahlt · Credits:</span><span id="ai-credits">verbinden...</span></div>
       <div class="chip-row" id="tc-chips"></div>
@@ -432,7 +475,39 @@
       if (name === 'verlauf' && userAddress) loadHistory().then(loadAccountAnalysis);
       if (name === 'dex') { loadPools(); updateDexFee(); loadChart(chartPair); if (userAddress && !txCache.length) loadHistory(); }
       if (name === 'tc') { initCopilot(); setTimeout(() => document.getElementById('chat-input').focus(), 50); }
+      if (name === 'launchpad') { renderMajor(); if (userAddress && !txCache.length) loadHistory().then(renderMajor); }
       window.scrollTo(0, 0);
+    }
+
+    function setPane(group, pane) {
+      document.querySelectorAll(`[data-pane^="${group}:"]`).forEach(el => {
+        const active = el.dataset.pane === `${group}:${pane}`;
+        el.classList.toggle('hidden', !active);
+        const frame = active && el.querySelector('iframe[data-src]');
+        if (frame && !frame.src) frame.src = frame.dataset.src;
+      });
+      document.querySelectorAll(`[data-pane-btn^="${group}:"]`).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.paneBtn === `${group}:${pane}`)));
+    }
+
+    function txFooterHtml(tx) {
+      if (!tx?.links) return '';
+      const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      const num = n => n == null ? '-' : String(Number(Number(n).toFixed(6)));
+      const info = tx.kind === 'tx'
+        ? `Letzte Tx: ${num(tx.amount)} ${esc(tx.token)} · Netzgebühr ${num(tx.fee)} TON · KI-Kosten 0 (zahlt @toncoing_bot)`
+        : 'KI-Kosten 0 (zahlt @toncoing_bot) · Alle Bot-Transaktionen im Vault';
+      return `<div class="tx-foot">${info}<br><a href="${esc(tx.links.tonviewer)}" target="_blank" rel="noopener noreferrer">Tonviewer</a> · <a href="${esc(tx.links.tonscan)}" target="_blank" rel="noopener noreferrer">Tonscan</a></div>`;
+    }
+
+    const RANKS = [[10000, 'TOP'], [2000, 'GOLD'], [500, 'SILBER'], [0, 'BRONZE']];
+    function renderMajor() {
+      const xp = parseInt(document.getElementById('xp-level').textContent, 10) || 1;
+      const points = txCache.length * 50 + xp * 100;
+      document.getElementById('major-points').textContent = points.toLocaleString('de-DE');
+      document.getElementById('major-rank').textContent = RANKS.find(([min]) => points >= min)[1];
+      const ref = tgUserId ? `?start=ref_${tgUserId}` : '';
+      const invite = `https://t.me/toncoing_bot${ref}`;
+      document.getElementById('major-invite').href = `https://t.me/share/url?url=${encodeURIComponent(invite)}&text=${encodeURIComponent('TGRAM: KI kostenlos, der Bot zahlt.')}`;
     }
     window.addEventListener('hashchange', () => renderView(location.hash.slice(1)));
 
@@ -985,8 +1060,8 @@
         });
         const d = await res.json();
         const answer = d.answer || d.error || 'Keine Antwort.';
-        pending.innerHTML = renderMsg(answer);
-        refreshCredits();
+  pending.innerHTML = renderMsg(answer) + txFooterHtml(d.tx);
+  refreshCredits();
         const prop = answer.match(/^\/cmd add ([a-z][a-z0-9_]{1,30}) (.+)$/m);
         if (prop) manageCmd('add ' + prop[1] + ' ' + prop[2]);
       } catch (e) { pending.textContent = 'Verbindungsfehler zum Serverless Proxy.'; }

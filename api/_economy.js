@@ -26,26 +26,61 @@ async function fetchJson(url) {
   return r.json();
 }
 
-async function paidCredits(subject) {
-  if (!VAULT) return 0;
+const toHex = (hash) => {
+  if (!hash) return "";
+  if (/^[0-9a-f]{64}$/i.test(hash)) return hash.toLowerCase();
+  return Buffer.from(hash.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("hex");
+};
+
+const explorerLinks = (hash) => {
+  const hex = toHex(hash);
+  return hex ? { tonviewer: `https://tonviewer.com/transaction/${hex}`, tonscan: `https://tonscan.org/tx/${hex}` } : null;
+};
+
+const accountLinks = (address) =>
+  address ? { tonviewer: `https://tonviewer.com/${address}`, tonscan: `https://tonscan.org/address/${address}` } : null;
+
+const LEDGER_TTL_MS = 60_000;
+const ledgerCache = new Map();
+
+// Every vault payment tagged "TGRAM:<subject>", newest first, with its network fee.
+async function ledger(subject) {
+  const hit = ledgerCache.get(subject);
+  if (hit && Date.now() - hit.at < LEDGER_TTL_MS) return hit.value;
   const tag = `TGRAM:${subject}`;
+  const txs = [];
   let credits = 0;
-  try {
-    const tx = await fetchJson(`${TONCENTER}/transactions?account=${encodeURIComponent(VAULT)}&limit=256&sort=desc`);
-    for (const t of tx.transactions || []) {
-      const msg = t.in_msg || {};
-      const comment = msg.message_content?.decoded?.comment || "";
-      if (comment.trim() === tag) credits += (Number(msg.value || 0) / 1e9) * PRICING.creditsPerTon;
-    }
-  } catch {}
-  try {
-    const jt = await fetchJson(`${TONCENTER}/jetton/transfers?owner_address=${encodeURIComponent(VAULT)}&direction=in&limit=256&sort=desc`);
-    for (const j of jt.jetton_transfers || []) {
-      const comment = j.comment || j.forward_payload_comment || "";
-      if (String(comment).trim() === tag) credits += (Number(j.amount || 0) / 1e9) * PRICING.creditsPerJetton;
-    }
-  } catch {}
-  return Math.floor(credits);
+  if (VAULT) {
+    try {
+      const tx = await fetchJson(`${TONCENTER}/transactions?account=${encodeURIComponent(VAULT)}&limit=256&sort=desc`);
+      for (const t of tx.transactions || []) {
+        const msg = t.in_msg || {};
+        const comment = msg.message_content?.decoded?.comment || "";
+        if (comment.trim() !== tag) continue;
+        const amount = Number(msg.value || 0) / 1e9;
+        credits += amount * PRICING.creditsPerTon;
+        txs.push({ hash: toHex(t.hash), token: "TON", amount, fee: Number(t.total_fees || 0) / 1e9, utime: t.now || 0 });
+      }
+    } catch {}
+    try {
+      const jt = await fetchJson(`${TONCENTER}/jetton/transfers?owner_address=${encodeURIComponent(VAULT)}&direction=in&limit=256&sort=desc`);
+      for (const j of jt.jetton_transfers || []) {
+        const comment = j.comment || j.forward_payload_comment || "";
+        if (String(comment).trim() !== tag) continue;
+        const amount = Number(j.amount || 0) / 1e9;
+        credits += amount * PRICING.creditsPerJetton;
+        txs.push({ hash: toHex(j.transaction_hash), token: "Jetton", amount, fee: null, utime: j.transaction_now || 0 });
+      }
+    } catch {}
+  }
+  txs.sort((a, b) => b.utime - a.utime);
+  const value = { credits: Math.floor(credits), txs };
+  ledgerCache.set(subject, { at: Date.now(), value });
+  return value;
+}
+
+async function paidCredits(subject) {
+  return (await ledger(subject)).credits;
 }
 
 // Telegram Stars (XTR) paid to @toncoing_bot. Telegram keeps the ledger, so no DB is needed:
@@ -114,4 +149,4 @@ async function askAI(prompt) {
   return (await r.text()).trim();
 }
 
-module.exports = { PRICING, balance, charge, paymentLink, askAI, VAULT };
+module.exports = { PRICING, balance, charge, paymentLink, askAI, VAULT, ledger, explorerLinks, accountLinks };

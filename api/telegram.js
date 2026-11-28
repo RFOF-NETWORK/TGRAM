@@ -1,6 +1,6 @@
 // @toncoing_bot webhook (Vercel). Set once:
 // https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://tgram-tau.vercel.app/api/telegram&secret_token=<TELEGRAM_WEBHOOK_SECRET>
-const { PRICING, balance, charge, paymentLink, askAI } = require("./_economy");
+const { PRICING, balance, charge, paymentLink, askAI, VAULT, ledger, explorerLinks, accountLinks } = require("./_economy");
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || "";
@@ -14,7 +14,39 @@ async function tg(method, body) {
   });
 }
 
-const reply = (chat_id, text, extra = {}) => tg("sendMessage", { chat_id, text, ...extra });
+const MAX_TEXT = 3600;
+const fmt = (n) => (n == null ? "-" : Number(n.toFixed(6)).toString());
+
+// Every bot message ends with the user's latest on-chain transaction (or the bot vault)
+// on Tonviewer and Tonscan, so costs and the bot-paid AI stay verifiable.
+async function txFooter(subject) {
+  let latest = null;
+  try { latest = (await ledger(String(subject))).txs[0] || null; } catch {}
+  const aiCost = PRICING.cost.ai ? `${PRICING.cost.ai} Credits` : "0 (zahlt @toncoing_bot)";
+  if (latest) {
+    const links = explorerLinks(latest.hash);
+    const when = latest.utime ? new Date(latest.utime * 1000).toISOString().slice(0, 16).replace("T", " ") : "";
+    return {
+      text: `\n\n— Letzte Tx: ${fmt(latest.amount)} ${latest.token} · Netzgebuehr ${fmt(latest.fee)} TON${when ? " · " + when + " UTC" : ""}\nKI-Kosten: ${aiCost}`,
+      row: links ? [{ text: "Tonviewer", url: links.tonviewer }, { text: "Tonscan", url: links.tonscan }] : [],
+    };
+  }
+  const vault = accountLinks(VAULT);
+  return {
+    text: `\n\n— KI-Kosten: ${aiCost}. Alle Bot-Transaktionen im Vault:`,
+    row: vault ? [{ text: "Vault auf Tonviewer", url: vault.tonviewer }, { text: "Vault auf Tonscan", url: vault.tonscan }] : [],
+  };
+}
+
+const reply = (chat_id, text, extra = {}) => sendReply(chat_id, text, extra);
+
+async function sendReply(chat_id, text, extra = {}, subject = chat_id) {
+  const footer = await txFooter(subject);
+  const keyboard = extra.reply_markup?.inline_keyboard || [];
+  const body = String(text).slice(0, MAX_TEXT) + footer.text;
+  const reply_markup = footer.row.length ? { ...extra.reply_markup, inline_keyboard: [...keyboard, footer.row] } : extra.reply_markup;
+  return tg("sendMessage", { chat_id, text: body, ...extra, ...(reply_markup ? { reply_markup } : {}) });
+}
 
 const openAppKeyboard = {
   reply_markup: { inline_keyboard: [[{ text: "TGRAM Mini App oeffnen", web_app: { url: MINI_APP } }]] },
@@ -22,12 +54,14 @@ const openAppKeyboard = {
 
 async function needCredits(chatId, uid, res) {
   const link = paymentLink(uid);
-  await reply(
+  await sendReply(
     chatId,
     `Nicht genug Credits (verfuegbar: ${res.available}, benoetigt: ${res.cost}).\n` +
       `Aufladen: TON oder NEC/BBC/AXF an den TGRAM Vault senden mit Kommentar TGRAM:${uid}\n` +
       `1 TON = ${PRICING.creditsPerTon} Credits, 1 Jetton = ${PRICING.creditsPerJetton} Credit.` +
       (link ? `\n${link}` : ""),
+    {},
+    uid,
   );
 }
 
@@ -67,6 +101,7 @@ async function handleCallback(q) {
 async function handle(msg) {
   const chatId = msg.chat.id;
   const uid = String(msg.from?.id || chatId);
+  const reply = (id, text, extra = {}) => sendReply(id, text, extra, uid);
   if (msg.successful_payment) {
     const b = await balance(uid);
     return reply(chatId, `Danke! ${msg.successful_payment.total_amount} Stars erhalten. Credits: ${b.available}.`);

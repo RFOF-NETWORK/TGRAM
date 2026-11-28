@@ -1,6 +1,14 @@
 // TGRAM Copilot API: used by the website/Mini App and by the Termux bot (agent-to-agent).
 // POST { subject: "<telegram-id or wallet>", prompt: "...", kind?: "ai"|"command"|"game" }
-const { PRICING, balance, charge, paymentLink, askAI } = require("./_economy");
+const { PRICING, balance, charge, paymentLink, askAI, VAULT, ledger, explorerLinks, accountLinks } = require("./_economy");
+
+// Latest on-chain transaction of the subject (or the bot vault) for the explorer footer.
+async function txInfo(subject) {
+  let latest = null;
+  try { latest = (await ledger(subject)).txs[0] || null; } catch {}
+  if (latest) return { kind: "tx", ...latest, links: explorerLinks(latest.hash) };
+  return { kind: "vault", address: VAULT, links: accountLinks(VAULT) };
+}
 
 const ALLOWED_ORIGINS = ["https://rfof-network.github.io", "https://tgram-tau.vercel.app"];
 
@@ -28,5 +36,6 @@ module.exports = async (req, res) => {
   if (!c.ok) return res.status(402).json({ error: "insufficient_credits", ...c, pay: paymentLink(subject) });
   if (kind !== "ai") return res.status(200).json({ ok: true, ...c });
   if (!prompt) return res.status(400).json({ error: "prompt_required" });
-  return res.status(200).json({ ok: true, answer: await askAI(prompt), ...c });
+  const [answer, tx] = await Promise.all([askAI(prompt), txInfo(subject)]);
+  return res.status(200).json({ ok: true, answer, tx, ...c });
 };
