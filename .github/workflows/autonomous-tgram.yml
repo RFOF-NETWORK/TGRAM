@@ -31,6 +31,13 @@ jobs:
           chmod +x tgram-cli.sh
           ./tgram-cli.sh
 
+      - name: Wallet-KI Autopilot (read-only check, alerts admin on problems)
+        env:
+          TGRAM_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
+        run: |
+          if [ -z "$TGRAM_SECRET" ]; then echo "TELEGRAM_WEBHOOK_SECRET repo secret not set - skipping"; exit 0; fi
+          curl -fsS -m 60 -H "x-tgram-secret: $TGRAM_SECRET" https://tgram-tau.vercel.app/api/autopilot || echo "autopilot call failed"
+
       # AUTO-HEAL STEP
       - name: Auto-Heal Environment Variables
         run: python auto_heal_env.py || true

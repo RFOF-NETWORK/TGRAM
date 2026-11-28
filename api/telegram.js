@@ -5,6 +5,7 @@ const { signAIReply } = require("./_botwallet");
 const { AXF_PER_STAR, isAxfPayload, axfClaims, axfInvoice } = require("./_axf");
 const userdb = require("./_userdb");
 const cells = require("./_cells");
+const { getExtension } = require("./extension");
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || "";
@@ -269,7 +270,8 @@ async function handle(msg) {
   const c = await charge(uid, "ai");
   if (!c.ok) return needCredits(chatId, uid, c);
   await tg("sendChatAction", { chat_id: chatId, action: "typing" });
-  const [answer, proof] = await Promise.all([askAI(question), signAIReply(uid)]);
+  const extension = await getExtension(uid).catch(() => null);
+  const [answer, proof] = await Promise.all([askAI(question, extension), signAIReply(uid)]);
   const reward = rewardAI(uid);
   const cost = cells.chain(question + String(answer));
   userdb
