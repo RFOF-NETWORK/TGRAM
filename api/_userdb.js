@@ -135,4 +135,26 @@ async function saveAutopilotReport(report) {
   if (id) await setData(id, "autopilot_report", JSON.stringify(report));
 }
 
-module.exports = { touchUser, logEvent, settleStars, setData, getData, myOverview, deleteMe, isAdmin, adminStats, adminId, saveAutopilotReport, KEY_RE };
+const REFERRAL_POINTS = 10;
+
+// Only brand-new users (no prior events) can be credited to a referrer, once.
+async function setReferrer(uid, referrerId) {
+  const id = idOf(uid);
+  const ref = idOf(referrerId);
+  if (id === ref) return false;
+  const [referrer] = await rest(`tg_users?tg_id=eq.${ref}&select=tg_id`);
+  if (!referrer) return false;
+  const prior = await rest(`tg_events?tg_id=eq.${id}&select=id&limit=1`);
+  if (prior.length) return false;
+  const updated = await rest(`tg_users?tg_id=eq.${id}&referred_by=is.null`, {
+    method: "PATCH",
+    prefer: "return=representation",
+    body: { referred_by: ref },
+  });
+  if (!updated.length) return false;
+  await logEvent(id, "joined_via_ref", { meta: { referrer: ref } });
+  await logEvent(ref, "referral", { points: REFERRAL_POINTS, meta: { referee: id } });
+  return true;
+}
+
+module.exports = { setReferrer, REFERRAL_POINTS, touchUser, logEvent, settleStars, setData, getData, myOverview, deleteMe, isAdmin, adminStats, adminId, saveAutopilotReport, KEY_RE };

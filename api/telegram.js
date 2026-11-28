@@ -212,6 +212,12 @@ async function handle(msg) {
     return reply(chatId, "Nutzung: /cmd add|remove|list name [prompt]");
   }
 
+  if (cmd === "/start" && me && /^ref_\d{1,15}$/.test(arg)) {
+    const credited = await userdb.setReferrer(uid, arg.slice(4)).catch(e => (console.error("referral", e.message), false));
+    if (credited) {
+      await reply(Number(arg.slice(4)), `Neuer Nutzer ueber deinen Einladungslink! +${userdb.REFERRAL_POINTS} KI-Punkte.`).catch(() => {});
+    }
+  }
   if (cmd === "/start" || cmd === "/app") {
     return reply(chatId, "Willkommen bei TGRAM. Schreib mir einfach - die KI ist kostenlos. Mini App, DEX (1 % Gebuehr) und Mini Game ueber den Knopf.", openAppKeyboard);
   }
