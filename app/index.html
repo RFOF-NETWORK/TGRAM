@@ -450,6 +450,16 @@
       <button class="btn btn-ghost" type="button" onclick="runGuardian(true)">Erneut prüfen</button>
     </div>
     <div class="card">
+      <h3>Smart Contracts · verifier.ton.org</h3>
+      <p class="muted">Jeder Eintrag ist antippbar und öffnet den Verifier. Status wird live aus der Blockchain gelesen. Die Zahl der verifizierten Contracts auf verifier.ton.org steigt erst, wenn ein Contract deployed und sein Quellcode dort verifiziert wurde.</p>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.6rem">
+        <a class="chip" href="https://verifier.ton.org/" target="_blank" rel="noopener noreferrer">Verifier</a>
+        <a class="chip" href="https://verifier.ton.org/verified" target="_blank" rel="noopener noreferrer">Verifizierte Contracts</a>
+        <a class="chip" href="https://verifier.ton.org/statistics" target="_blank" rel="noopener noreferrer">Statistik</a>
+      </div>
+      <div class="list" id="contract-list"><p class="muted">Lade Status …</p></div>
+    </div>
+    <div class="card">
       <h3>Bauplan TGRAM · 0–100 %</h3>
       <p class="muted">Was schlüsselfertig läuft und was noch fehlt. Stand wird bei jedem Release aktualisiert.</p>
       <div class="plan-bar" role="progressbar" aria-label="Fortschritt" aria-valuemin="0" aria-valuemax="100" id="plan-progress"><span></span></div>
@@ -1155,11 +1165,11 @@
       ['done', 'Telegram-Bot @toncoing_bot', 'KI-Antworten mit echtem Transaktions-Link (Tonviewer/Tonscan), Wert und Stars-Zähler.'],
       ['done', 'Eigene Liteserver', 'Blockchain-Abfragen zuerst über deine TON-Console-Liteserver, Toncenter als Fallback.'],
       ['done', 'KI-Chat führt Transaktionen aus', '„sende 1 TON an UQ…“ oder /send: Bestätigung im Allow-Popup, Unterschrift über TON Connect.'],
-      ['wip', 'Bot-Wallet signiert selbst', 'Braucht in BOT_WALLET_MNEMONIC die 24 Wörter einer separaten Bot-Wallet (derzeit falscher Wert eingetragen).'],
+      ['wip', 'Bot-Wallet signiert selbst', 'Eigene 24 Wörter sind in BOT_WALLET_MNEMONIC hinterlegt (Wallet UQBg9Q1k…QSv27). Fehlt noch: 1–2 TON Guthaben, danach der Signier-Code für eine Transaktion pro KI-Antwort.'],
       ['wip', 'AXF / NEC minten', 'AXF ist noch nicht on-chain geminted; Minten im TLPFG-Tab, danach erscheinen Kurs und Chart automatisch.'],
       ['done', 'KI-Wächter', 'Read-only Live-Prüfung von Mainnet, Testnet, Liteservern, Bot, Stars und Anzeige in der Oberfläche.'],
       ['wip', 'Telegram Stars (XTR)', 'Live-Saldo und Transaktionen im MTS-Tab; dauerhafte Stars-Salden pro Nutzer brauchen noch eine Datenbank.'],
-      ['todo', 'Eigene Smart Contracts (tools/acton)', 'Tolk-Contracts bauen, deployen und auf verifier.ton.org verifizieren.'],
+      ['todo', 'Eigene Smart Contracts (tools/acton)', 'Drei Tolk-Contracts liegen im Repo (Jetton, DEX-Launchpad, Energy-Vault), sind aber noch nicht deployed. Nach Deploy und Verifizierung erscheinen sie auf verifier.ton.org.'],
       ['todo', 'TON-Coin & rfof-network.github.ton Pages', 'Fixes liegen bereit; GitHub verweigert noch den Schreibzugriff (403) für v0.'],
     ];
     const API_BASE = TGRAM_API.replace(/\/copilot$/, '');
@@ -1221,8 +1231,40 @@
       box.innerHTML = [...server, ...uiChecks()].map(c => `<div class="check-row"><span><strong>${esc(c.name)}</strong><br><span class="muted">${esc(c.detail || '')}${c.hint ? ' · ' + esc(c.hint) : ''}</span></span><span class="st ${c.ok ? 'ok' : 'bad'}">${c.ok ? 'OK' : 'Prüfen'}</span></div>`).join('');
     }
 
-    function renderPlan() {
-      const w = { done: 1, wip: 0.5, todo: 0 };
+  const CONTRACTS = [
+  { name: 'Bot-Wallet (TGRAM Copilot)', addr: 'UQBg9Q1kUBfe5pRgguB5M2XzCSxwaZ0nIXRcovleeh-QSv27' },
+  { name: 'Owner-Wallet satoramy-on.ton', addr: 'UQDk-1Gqc4YIC22LTAAZLxomhkyp-V52B0yaeHgmk3t9Lli6' },
+  { name: 'Jetton (jetton-token.tolk)', src: 'blockchain-cloud/apiless-onchain/jetton-token.tolk' },
+  { name: 'DEX-Launchpad (dex-launchpad.tolk)', src: 'blockchain-cloud/apiless-onchain/dex-launchpad.tolk' },
+  { name: 'Energy-Vault (energy-storage-vault.tolk)', src: 'blockchain-cloud/apiless-onchain/energy-storage-vault.tolk' }
+  ];
+  let contractsLoaded = false;
+  async function renderContracts() {
+  const box = document.getElementById('contract-list');
+  if (!box || contractsLoaded) return;
+  contractsLoaded = true;
+  const rows = await Promise.all(CONTRACTS.map(async (c) => {
+    if (!c.addr) {
+      const href = 'https://github.com/RFOF-NETWORK/TGRAM/blob/main/' + c.src;
+      return '<a class="row" href="' + href + '" target="_blank" rel="noopener noreferrer"><span><strong>' + esc(c.name) + '</strong><br><span class="muted">Quellcode im Repo · noch nicht deployed</span></span><span class="muted">GitHub</span></a>';
+    }
+    let status = 'unbekannt';
+    let kind = '';
+    try {
+      const r = await fetch('https://tonapi.io/v2/accounts/' + c.addr);
+      const j = await r.json();
+      status = j.status === 'active' ? 'aktiv' : j.status === 'nonexist' ? 'noch nicht aktiv (kein Guthaben)' : (j.status || 'unbekannt');
+      kind = (j.interfaces || []).join(', ');
+    } catch (e) {}
+    const href = 'https://verifier.ton.org/' + c.addr;
+    return '<a class="row" href="' + href + '" target="_blank" rel="noopener noreferrer"><span><strong>' + esc(c.name) + '</strong><br><span class="muted">' + esc(c.addr.slice(0, 8) + '…' + c.addr.slice(-6)) + ' · ' + esc(status) + (kind ? ' · ' + esc(kind) : '') + '</span></span><span class="muted">Verifier</span></a>';
+  }));
+  box.innerHTML = rows.join('');
+  }
+  
+  function renderPlan() {
+  renderContracts();
+  const w = { done: 1, wip: 0.5, todo: 0 };
       const pct = Math.round(PLAN.reduce((s, [st]) => s + w[st], 0) / PLAN.length * 100);
       const bar = document.getElementById('plan-progress');
       bar.setAttribute('aria-valuenow', String(pct));
