@@ -399,7 +399,8 @@
         <input id="browser-url" type="text" inputmode="url" autocomplete="off" placeholder="Adresse oder Suche (z. B. tonviewer.com)" aria-label="Adresse oder Suchbegriff" />
         <button class="btn" type="submit" style="max-width:7rem; margin:0;">Öffnen</button>
       </div>
-      <div class="list" id="browser-quick" style="margin-top:0.6rem;" aria-label="Schnellzugriff"></div>
+      <p class="muted" style="margin:0.8rem 0 0;">Genutzte TON-Tools: TGRAM baut auf diesen Protokollen auf und ergänzt nur, was sie noch nicht bieten. Danke an alle Teams.</p>
+      <div class="list" id="browser-quick" aria-label="Genutzte TON-Tools"></div>
     </form>
     <div class="card embed hidden" id="browser-pane">
       <div class="embed-bar"><span id="browser-current" class="addr" style="margin:0;"></span><a id="browser-external" target="_blank" rel="noopener noreferrer">Extern öffnen</a></div>
@@ -687,11 +688,25 @@
     const VIEWS = ['home', 'dex', 'tc', 'launchpad', 'staking', 'mining', 'browser', 'docs', 'verlauf', 'profil', 'stars'];
     const EXT_API = TGRAM_API.replace(/\/copilot$/, '/extension');
     const BROWSER_QUICK = [
-      ['Tonviewer', 'https://tonviewer.com'],
-      ['STON.fi', 'https://app.ston.fi'],
-      ['TON-Coin dApp', 'https://rfof-network.github.io/TON-Coin/'],
-      ['github.ton', 'https://rfof-network.github.io/rfof-network.github.ton/'],
-      ['TON Docs', 'https://docs.ton.org'],
+      ['Handel & Liquidität', [
+        ['STON.fi', 'https://app.ston.fi', 'Swaps, Liquidity Pools und Farms (Mining-Tab)'],
+        ['Omniston', 'https://omniston.ston.fi', 'Beste Route über alle Pools hinweg'],
+        ['DeDust', 'https://dedust.io', 'Zweiter DEX für TLPFG-Coins ab 10.000 $'],
+        ['Storm Trade', 'https://app.storm.trade', 'Perpetual Futures für echte KI-Orders'],
+      ]],
+      ['Staking', [
+        ['Tonstakers', 'https://app.tonstakers.com', 'Liquid Staking: TON zu tsTON'],
+      ]],
+      ['Wallet & Daten', [
+        ['Tonkeeper', 'https://tonkeeper.com', 'Wallet für TON Connect'],
+        ['Tonviewer', 'https://tonviewer.com', 'Transaktionen und Contracts prüfen'],
+        ['TON Center', 'https://toncenter.com', 'RPC für Kontostände und Vault'],
+      ]],
+      ['RFOF-NETWORK', [
+        ['TON-Coin dApp', 'https://rfof-network.github.io/TON-Coin/', 'Eigene Jetton-Contracts'],
+        ['github.ton', 'https://rfof-network.github.io/rfof-network.github.ton/', 'Projektseite'],
+        ['TON Docs', 'https://docs.ton.org', 'Technische Grundlage'],
+      ]],
     ];
 
     function normalizeUrl(input) {
@@ -716,7 +731,10 @@
     function renderBrowser() {
       const box = document.getElementById('browser-quick');
       if (box.childElementCount) return;
-      box.innerHTML = BROWSER_QUICK.map(([n, u]) => `<div class="list-row"><span>${esc(n)}</span><button class="tab-btn" type="button" data-url="${esc(u)}">Öffnen</button></div>`).join('');
+      box.innerHTML = BROWSER_QUICK.map(([group, items]) =>
+        `<h4 class="muted" style="margin:0.8rem 0 0.3rem; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em;">${esc(group)}</h4>` +
+        items.map(([n, u, why]) => `<div class="list-row"><span><strong>${esc(n)}</strong><br><span class="muted" style="font-size:0.85rem;">${esc(why)}</span></span><button class="tab-btn" type="button" style="flex:none; width:auto; padding:0.4rem 0.9rem;" data-url="${esc(u)}" aria-label="${esc(n)} öffnen">Öffnen</button></div>`).join('')
+      ).join('');
       box.addEventListener('click', e => { const b = e.target.closest('[data-url]'); if (b) browseTo(b.dataset.url); });
     }
 
