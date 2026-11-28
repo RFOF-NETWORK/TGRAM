@@ -2,141 +2,324 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#070b12" />
   <title>TGRAM - Hybrid Blockchain Gateway</title>
   <style>
-    :root { --bg: #070b12; --card: #111827; --border: #1f2937; --primary: #38bdf8; --text: #f1f5f9; --ok: #4ade80; --warn: #fbbf24; }
-    body { background: var(--bg); color: var(--text); font-family: monospace; padding: 1rem; margin: 0; }
-    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; margin-bottom: 1rem; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+    :root { --bg: #070b12; --card: #111827; --border: #1f2937; --primary: #38bdf8; --text: #f1f5f9; --muted: #94a3b8; --ok: #4ade80; --warn: #fbbf24; }
+    html { background: var(--bg); }
+    body { background: var(--bg); color: var(--text); font-family: monospace; padding: 1rem 1rem 6rem; margin: 0; line-height: 1.5; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; margin-bottom: 1rem; }
     h2, h3 { color: var(--primary); margin-top: 0; font-weight: 600; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.8rem; }
-    .mod { background: #0b111e; border: 1px solid var(--border); border-radius: 8px; padding: 0.8rem; font-size: 0.85rem; text-align: center; transition: 0.2s; }
-    .mod:hover { border-color: var(--primary); transform: translateY(-2px); }
-    .mod strong { display: block; margin-bottom: 0.3rem; color: var(--primary); }
-    .btn { background: linear-gradient(90deg, #229ed9, #0284c7); border: none; color: white; padding: 0.8rem; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 0.5rem; font-family: monospace; }
+    .btn { background: linear-gradient(90deg, #229ed9, #0284c7); border: none; color: var(--text); padding: 0.8rem; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 0.5rem; font-family: monospace; display: block; text-align: center; text-decoration: none; box-sizing: border-box; }
     .btn:active { opacity: 0.8; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-ghost { background: #1e293b; border: 1px solid var(--primary); }
+    .btn-danger { background: transparent; border: 1px solid #f87171; color: #f87171; }
     .input-group { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
-    input, select { width: 100%; padding: 0.8rem; border-radius: 8px; border: 1px solid var(--border); background: #0b111e; color: white; font-family: monospace; box-sizing: border-box; }
-    .token-balance { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 0.3rem; color: #94a3b8; }
+    input, select { width: 100%; padding: 0.8rem; border-radius: 8px; border: 1px solid var(--border); background: #0b111e; color: var(--text); font-family: monospace; box-sizing: border-box; font-size: 0.9rem; }
+    .token-balance { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.9rem; margin-bottom: 0.3rem; color: var(--muted); }
     .ok { color: var(--ok); }
     .warn { color: var(--warn); }
+    .muted { color: var(--muted); font-size: 0.85rem; }
     .hidden { display: none !important; }
-    #chat-box { background: #070a10; padding: 0.8rem; border-radius: 8px; max-height: 200px; overflow-y: auto; margin-bottom: 0.6rem; font-size: 0.85rem; border: 1px solid var(--border); }
+    #chat-box { background: #070a10; padding: 0.8rem; border-radius: 8px; max-height: 220px; overflow-y: auto; margin-bottom: 0.6rem; font-size: 0.85rem; border: 1px solid var(--border); }
     .tab-buttons { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
-    .tab-btn { flex: 1; background: #1e293b; border: 1px solid var(--border); color: white; padding: 0.6rem; border-radius: 6px; cursor: pointer; }
-    .tab-btn.active { background: var(--primary); color: black; border-color: var(--primary); font-weight: bold; }
+    .tab-btn { flex: 1; background: #1e293b; border: 1px solid var(--border); color: var(--text); padding: 0.6rem; border-radius: 6px; cursor: pointer; font-family: monospace; }
+    .tab-btn.active { background: var(--primary); color: var(--bg); border-color: var(--primary); font-weight: bold; }
+    .icon { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+
+    .app-header { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 1rem; }
+    .app-header h1 { display: flex; align-items: center; gap: 0.5rem; font-size: 1.15rem; color: var(--primary); margin: 0; }
+    .header-actions { display: flex; gap: 0.5rem; }
+    .icon-btn { display: flex; align-items: center; gap: 0.35rem; background: #1e293b; border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 0.5rem 0.65rem; cursor: pointer; font-family: monospace; font-size: 0.8rem; text-decoration: none; }
+    .icon-btn:hover { border-color: var(--primary); }
+
+    .balance-card { border-color: #0e4a66; }
+    .balance-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+    .balance-id { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+    .balance-id span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .balance-amount { font-size: 1.35rem; font-weight: bold; color: var(--text); white-space: nowrap; }
+    .quick-actions { display: flex; gap: 0.5rem; margin-top: 0.8rem; }
+    .quick-actions button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.25rem; background: #0b111e; border: 1px solid var(--border); color: var(--text); border-radius: 10px; padding: 0.6rem 0.3rem; cursor: pointer; font-family: monospace; font-size: 0.8rem; }
+    .quick-actions button:hover { border-color: var(--primary); color: var(--primary); }
+
+    .bottom-nav { position: fixed; left: 0; right: 0; bottom: 0; display: flex; background: #0b111e; border-top: 1px solid var(--border); padding: 0.4rem 0.25rem calc(0.4rem + env(safe-area-inset-bottom)); z-index: 20; }
+    .bottom-nav button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.15rem; background: none; border: none; color: var(--muted); font-family: monospace; font-size: 0.7rem; cursor: pointer; padding: 0.3rem 0; }
+    .bottom-nav button[aria-current="page"] { color: var(--primary); font-weight: bold; }
+
+    .list { display: flex; flex-direction: column; gap: 0.4rem; }
+    .list-row { display: flex; justify-content: space-between; gap: 0.5rem; background: #0b111e; border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem; font-size: 0.82rem; }
+    .list-row a { color: var(--primary); }
+    .switch { display: flex; background: #0b111e; border: 1px solid var(--border); border-radius: 8px; padding: 0.2rem; gap: 0.2rem; margin-bottom: 0.8rem; }
+    .switch button { flex: 1; background: none; border: none; color: var(--muted); padding: 0.5rem; border-radius: 6px; cursor: pointer; font-family: monospace; }
+    .switch button[aria-pressed="true"] { background: var(--primary); color: var(--bg); font-weight: bold; }
+
+    dialog { background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 12px; width: min(420px, 92vw); padding: 1rem; }
+    dialog::backdrop { background: rgba(0,0,0,0.6); }
+    .addr { word-break: break-all; background: #0b111e; border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem; font-size: 0.8rem; }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h2>🌐 TGRAM Gateway</h2>
-    <p id="tg-status">Prüfe Sitzung...</p>
-    <p id="wallet-banner" class="ok" style="font-weight: bold;"></p>
-    <button id="app-unified-btn" class="btn">Telegram & Wallet synchronisieren</button>
-    <div id="ton-connect-root" style="display:none;"></div>
-  </div>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+    <symbol id="i-card" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></symbol>
+    <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></symbol>
+    <symbol id="i-swap" viewBox="0 0 24 24"><path d="m16 3 4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
+    <symbol id="i-receive" viewBox="0 0 24 24"><path d="M12 5v14M19 12l-7 7-7-7"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a2 2 0 0 1-2 2h-4v-7H9v7H5a2 2 0 0 1-2-2z"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18M7 15l4-4 3 3 5-6"/></symbol>
+    <symbol id="i-rocket" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.3-2 5-2 5s3.7-.5 5-2c.7-.8.7-2.1-.1-2.9a2.2 2.2 0 0 0-2.9-.1zM12 15l-3-3a22 22 0 0 1 2-4A13 13 0 0 1 22 2c0 2.7-.8 7.5-6 11a22 22 0 0 1-4 2zM9 12H4s.6-3 2-4c1.6-1.1 5 0 5 0M12 15v5s3-.6 4-2c1.1-1.6 0-5 0-5"/></symbol>
+    <symbol id="i-coins" viewBox="0 0 24 24"><circle cx="8" cy="8" r="6"/><path d="M18.1 10.4A6 6 0 1 1 10.3 18M7 6h1v4M16.7 13.9l.7.7-2.8 2.8"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+    <symbol id="i-bot" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="12" rx="2"/><path d="M12 8V4M8 14h.01M16 14h.01"/></symbol>
+  </svg>
 
-  <section class="card" aria-labelledby="app-tg-connect-title">
-    <h3 id="app-tg-connect-title">Telegram Connect</h3>
-    <p style="color:#94a3b8; margin-top:0;">Direkt mit <strong>@Satoramy</strong> auf Telegram verbinden:</p>
-    <nav aria-label="Telegram Links" style="display:flex; flex-direction:column; gap:0.5rem;">
-      <a class="btn" style="display:block; text-align:center; text-decoration:none; box-sizing:border-box;" href="https://t.me/Satoramy" target="_blank" rel="noopener noreferrer">Chat mit @Satoramy öffnen</a>
-      <a class="btn" style="display:block; text-align:center; text-decoration:none; box-sizing:border-box; background:#1e293b; border:1px solid var(--primary);" href="https://t.me/Satoramy?startapp=tgram" target="_blank" rel="noopener noreferrer">TGRAM Mini App in Telegram starten</a>
-    </nav>
-    <p style="color:#94a3b8; margin:1rem 0 0.5rem;">Mit Telegram anmelden:</p>
-    <div id="app-tg-login-widget" aria-live="polite"></div>
-    <script>
-      (function () {
-        // Telegram Login requires a @BotFather bot username (not a personal account).
-        const TG_LOGIN_BOT = '';
-        const mount = document.getElementById('app-tg-login-widget');
-        if (!TG_LOGIN_BOT) {
-          mount.innerHTML = '<p style="color:#fbbf24; font-size:0.85rem; margin:0;">Login-Widget inaktiv: Bot-Benutzername aus @BotFather fehlt. Chat- und Mini-App-Link funktionieren bereits.</p>';
-          return;
-        }
-        const rootPath = window.location.pathname.replace(/app\/[^/]*$/, '');
-        const w = document.createElement('script');
-        w.async = true;
-        w.src = 'https://telegram.org/js/telegram-widget.js?22';
-        w.setAttribute('data-telegram-login', TG_LOGIN_BOT);
-        w.setAttribute('data-size', 'large');
-        w.setAttribute('data-radius', '10');
-        w.setAttribute('data-request-access', 'write');
-        w.setAttribute('data-auth-url', window.location.origin + rootPath + 'auth-callback.html');
-        document.getElementById('app-tg-login-widget').appendChild(w);
-      })();
-    </script>
+  <header class="app-header">
+    <h1><svg class="icon"><use href="#i-globe"/></svg>TGRAM Gateway</h1>
+    <div class="header-actions">
+      <button class="icon-btn" type="button" onclick="showTab('profil')" aria-label="Settings"><svg class="icon"><use href="#i-gear"/></svg></button>
+      <a class="icon-btn" href="https://t.me/wallet?start=buy" target="_blank" rel="noopener noreferrer"><svg class="icon"><use href="#i-card"/></svg>Kaufen</a>
+    </div>
+  </header>
+
+  <section class="card balance-card" aria-label="Balance">
+    <div class="balance-row">
+      <div class="balance-id"><svg class="icon"><use href="#i-wallet"/></svg><span id="balance-name">Wallet nicht verbunden</span></div>
+      <div class="balance-amount" id="balance-ton">0.0000 TON</div>
+    </div>
+    <div class="quick-actions">
+      <button type="button" onclick="showTab('dex')"><svg class="icon"><use href="#i-swap"/></svg>Swap</button>
+      <button type="button" onclick="openSend()"><svg class="icon"><use href="#i-send"/></svg>Senden</button>
+      <button type="button" onclick="openReceive()"><svg class="icon"><use href="#i-receive"/></svg>Empfangen</button>
+    </div>
   </section>
 
-  <div class="card" id="dashboard" style="opacity: 0.5; pointer-events: none;">
-    <h3>💱 Währungssystem & Ökosystem</h3>
-    <div class="tab-buttons">
-      <button class="tab-btn active" onclick="switchTab('swap')">Swap</button>
-      <button class="tab-btn" onclick="switchTab('staking')">Staking</button>
-      <button class="tab-btn" onclick="switchTab('vault')">XP Vault</button>
+  <!-- ================= HOME (Screen 2) ================= -->
+  <main id="view-home" data-view>
+    <div class="card">
+      <p id="tg-status">Prüfe Sitzung...</p>
+      <p id="wallet-banner" class="ok" style="font-weight: bold;"></p>
+      <button id="app-unified-btn" class="btn">Telegram & Wallet synchronisieren</button>
+      <div id="ton-connect-root" style="display:none;"></div>
     </div>
 
-    <!-- SWAP MODUL -->
-    <div id="tab-swap">
-      <div class="input-group">
-        <select id="swap-from">
-          <option value="TON">TON</option>
-          <option value="NEC">NEC</option>
-          <option value="BBC">BBC</option>
-          <option value="AXF">AXF</option>
-        </select>
-        <select id="swap-to">
-          <option value="NEC">NEC</option>
-          <option value="BBC">BBC</option>
-          <option value="AXF">AXF</option>
-          <option value="TON">TON</option>
-        </select>
+    <div class="card" id="dashboard" style="opacity: 0.5; pointer-events: none;">
+      <h3>Währungssystem & Ökosystem</h3>
+      <div class="tab-buttons">
+        <button class="tab-btn active" onclick="switchTab('swap')">Swap</button>
+        <button class="tab-btn" onclick="switchTab('staking')">Staking</button>
+        <button class="tab-btn" onclick="switchTab('vault')">XP Vault</button>
       </div>
-      <input type="number" id="swap-amount" placeholder="Betrag eingeben..." oninput="updateSwapFee()" />
-      <div class="token-balance"><span>Plattform-Gebühr (1 %):</span><span id="swap-fee">0.00</span></div>
-      <div class="token-balance"><span>Du erhältst (vor Kurs):</span><span id="swap-net">0.00</span></div>
-      <button class="btn" onclick="executeSwap()">Token tauschen</button>
-    </div>
 
-    <!-- STAKING MODUL -->
-    <div id="tab-staking" class="hidden">
-      <div class="token-balance"><span>Verfügbar (NEC):</span><span id="stake-bal">0.00</span></div>
-      <input type="number" id="stake-amount" placeholder="NEC Menge zum Staken..." />
-      <div class="input-group">
-        <select id="stake-pool">
-          <option value="30">30 Tage (5% APY)</option>
-          <option value="90">90 Tage (12% APY)</option>
-          <option value="365">365 Tage (25% APY)</option>
-        </select>
+      <!-- SWAP MODUL -->
+      <div id="tab-swap">
+        <div class="input-group">
+          <select id="swap-from">
+            <option value="TON">TON</option>
+            <option value="NEC">NEC</option>
+            <option value="BBC">BBC</option>
+            <option value="AXF">AXF</option>
+          </select>
+          <select id="swap-to">
+            <option value="NEC">NEC</option>
+            <option value="BBC">BBC</option>
+            <option value="AXF">AXF</option>
+            <option value="TON">TON</option>
+          </select>
+        </div>
+        <input type="number" id="swap-amount" placeholder="Betrag eingeben..." oninput="updateSwapFee()" />
+        <div class="token-balance"><span>Plattform-Gebühr (1 %):</span><span id="swap-fee">0.00</span></div>
+        <div class="token-balance"><span>Du erhältst (vor Kurs):</span><span id="swap-net">0.00</span></div>
+        <button class="btn" onclick="executeSwap()">Token tauschen</button>
       </div>
-      <button class="btn" onclick="executeStake()">Staken & Pool stabilisieren</button>
+
+      <!-- STAKING MODUL -->
+      <div id="tab-staking" class="hidden">
+        <div class="token-balance"><span>Verfügbar (NEC):</span><span id="stake-bal">–</span></div>
+        <input type="number" id="stake-amount" placeholder="NEC Menge zum Staken..." />
+        <div class="input-group">
+          <select id="stake-pool">
+            <option value="30">30 Tage (5% APY)</option>
+            <option value="90">90 Tage (12% APY)</option>
+            <option value="365">365 Tage (25% APY)</option>
+          </select>
+        </div>
+        <button class="btn" onclick="executeStake()">Staken & Pool stabilisieren</button>
+      </div>
+
+      <!-- VAULT MODUL -->
+      <div id="tab-vault" class="hidden">
+        <p class="warn" style="font-size: 0.85rem;">Gesperrte Vermögenswerte für Arbitrage (AXF):</p>
+        <div class="token-balance"><span>XP Level:</span><span id="xp-level" class="ok">1</span></div>
+        <div class="token-balance"><span>Gesperrte AXF:</span><span id="vault-bal">–</span></div>
+        <button class="btn" onclick="claimVault()">Tägliche XP & Rendite abholen</button>
+      </div>
     </div>
 
-    <!-- VAULT MODUL -->
-    <div id="tab-vault" class="hidden">
-      <p class="warn" style="font-size: 0.85rem;">Gesperrte Vermögenswerte für Arbitrage (AXF):</p>
-      <div class="token-balance"><span>XP Level:</span><span id="xp-level" class="ok">1</span></div>
-      <div class="token-balance"><span>Gesperrte AXF:</span><span id="vault-bal">0.00</span></div>
-      <button class="btn" onclick="claimVault()">Tägliche XP & Rendite abholen</button>
+    <div class="card">
+      <h3 style="display:flex; align-items:center; gap:0.5rem;"><svg class="icon"><use href="#i-bot"/></svg>TGRAM Copilot</h3>
+      <div class="token-balance"><span>KI: kostenlos & unbegrenzt · Credits (optional):</span><span id="ai-credits">verbinden...</span></div>
+      <div id="chat-box"><div><strong>Copilot:</strong> Serverless Proxy aktiv. Frag mich nach TON, NEC, BBC oder AXF.</div></div>
+      <div style="display:flex; gap:0.5rem;">
+        <input id="chat-input" type="text" placeholder="Deine Frage..." style="flex:1;" aria-label="Frage an den Copilot" />
+        <button class="btn" style="width:auto; margin:0;" onclick="askCopilot()">Senden</button>
+      </div>
     </div>
-  </div>
 
-  <div class="card">
-    <h3>🤖 TGRAM Copilot</h3>
-    <div class="token-balance"><span>KI-Credits (2 pro Frage):</span><span id="ai-credits">verbinden...</span></div>
-    <div id="chat-box"><div><strong>Copilot:</strong> Serverless Proxy aktiv. Frag mich nach TON, NEC, BBC oder AXF.</div></div>
-    <div style="display:flex; gap:0.5rem;">
-      <input id="chat-input" type="text" placeholder="Deine Frage..." style="flex:1;" />
-      <button class="btn" style="width:auto; margin:0;" onclick="askCopilot()">Senden</button>
+    <section class="card" aria-labelledby="app-tg-connect-title">
+      <h3 id="app-tg-connect-title">Telegram Connect</h3>
+      <p style="color:var(--muted); margin-top:0;">Direkt mit <strong>@Satoramy</strong> und <strong>@toncoing_bot</strong> auf Telegram verbinden:</p>
+      <nav aria-label="Telegram Links" style="display:flex; flex-direction:column; gap:0.5rem;">
+        <a class="btn" href="https://t.me/Satoramy" target="_blank" rel="noopener noreferrer">Chat mit @Satoramy öffnen</a>
+        <a class="btn btn-ghost" href="https://t.me/toncoing_bot?startapp=tgram" target="_blank" rel="noopener noreferrer">TGRAM Mini App in Telegram starten</a>
+      </nav>
+      <p style="color:var(--muted); margin:1rem 0 0.5rem;">Mit Telegram anmelden:</p>
+      <div id="app-tg-login-widget" aria-live="polite"></div>
+      <script>
+        (function () {
+          const TG_LOGIN_BOT = 'toncoing_bot';
+          const rootPath = window.location.pathname.replace(/app\/[^/]*$/, '');
+          const w = document.createElement('script');
+          w.async = true;
+          w.src = 'https://telegram.org/js/telegram-widget.js?22';
+          w.setAttribute('data-telegram-login', TG_LOGIN_BOT);
+          w.setAttribute('data-size', 'large');
+          w.setAttribute('data-radius', '10');
+          w.setAttribute('data-request-access', 'write');
+          w.setAttribute('data-auth-url', window.location.origin + rootPath + 'auth-callback.html');
+          document.getElementById('app-tg-login-widget').appendChild(w);
+        })();
+      </script>
+    </section>
+
+    <button class="btn btn-danger" type="button" onclick="globalLogout()">Logout</button>
+  </main>
+
+  <!-- ================= DEX ================= -->
+  <section id="view-dex" data-view class="hidden" aria-label="DEX">
+    <div class="card">
+      <h3>DEX Swap (1 % Plattform-Gebühr)</h3>
+      <p class="muted">Die Gebühr geht on-chain an den TGRAM Vault, der Swap läuft über STON.fi DEX v2.</p>
+      <div class="input-group">
+        <select id="dex-from" aria-label="Von"><option>TON</option><option>NEC</option><option>BBC</option><option>AXF</option></select>
+        <select id="dex-to" aria-label="Nach"><option>NEC</option><option>BBC</option><option>AXF</option><option>TON</option></select>
+      </div>
+      <input type="number" id="dex-amount" placeholder="Betrag..." oninput="updateDexFee()" aria-label="Betrag" />
+      <div class="token-balance"><span>Gebühr 1 %:</span><span id="dex-fee">0.0000</span></div>
+      <div class="token-balance"><span>Netto in den Swap:</span><span id="dex-net">0.0000</span></div>
+      <button class="btn" type="button" onclick="executeDexSwap()">Gebühr zahlen & Swap öffnen</button>
     </div>
-  </div>
+    <div class="card">
+      <h3>Liquidity Pools</h3>
+      <div class="list" id="pool-list"><p class="muted">Lade Pools von STON.fi...</p></div>
+    </div>
+  </section>
+
+  <!-- ================= LAUNCHPAD ================= -->
+  <section id="view-launchpad" data-view class="hidden" aria-label="Launchpad">
+    <div class="card">
+      <h3>Launchpad · Extention Contracts</h3>
+      <p class="muted">Jetton-Standard aus dem Repo <strong>TON-Coin</strong> (JettonMinter / JettonWallet in Tolk, Gas-Benchmarks und Tests).</p>
+      <div class="list">
+        <div class="list-row"><span>JettonMinter.tolk</span><a href="https://github.com/RFOF-NETWORK/TON-Coin/blob/main/contracts/JettonMinter.tolk" target="_blank" rel="noopener noreferrer">Contract</a></div>
+        <div class="list-row"><span>JettonWallet.tolk</span><a href="https://github.com/RFOF-NETWORK/TON-Coin/blob/main/contracts/JettonWallet.tolk" target="_blank" rel="noopener noreferrer">Contract</a></div>
+        <div class="list-row"><span>fees-management.tolk</span><a href="https://github.com/RFOF-NETWORK/TON-Coin/blob/main/contracts/fees-management.tolk" target="_blank" rel="noopener noreferrer">Contract</a></div>
+        <div class="list-row"><span>Deploy-Skript</span><a href="https://github.com/RFOF-NETWORK/TON-Coin/blob/main/scripts/deploy.tolk" target="_blank" rel="noopener noreferrer">deploy.tolk</a></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Ökosystem (3 Repos, eine Mini App)</h3>
+      <div class="list">
+        <div class="list-row"><span>TGRAM: Mini App, Bot, Copilot</span><a href="https://github.com/RFOF-NETWORK/TGRAM" target="_blank" rel="noopener noreferrer">Repo</a></div>
+        <div class="list-row"><span>TON-Coin: Jetton + STON.fi dApp</span><a href="https://rfof-network.github.io/TON-Coin/" target="_blank" rel="noopener noreferrer">dApp</a></div>
+        <div class="list-row"><span>github.ton: Wallet-Core, PRAIAI</span><a href="https://rfof-network.github.io/rfof-network.github.ton/" target="_blank" rel="noopener noreferrer">Seite</a></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= STAKING ================= -->
+  <section id="view-staking" data-view class="hidden" aria-label="Staking">
+    <div class="card">
+      <h3>Staking</h3>
+      <div class="switch" role="group" aria-label="Netzwerk">
+        <button type="button" id="net-mainnet" aria-pressed="true" onclick="setNetwork('mainnet')">Mainnet</button>
+        <button type="button" id="net-testnet" aria-pressed="false" onclick="setNetwork('testnet')">Testnet</button>
+      </div>
+      <div class="token-balance"><span>Netzwerk:</span><span id="net-label" class="ok">Mainnet</span></div>
+      <div class="token-balance"><span>TON Balance:</span><span id="stake-ton">–</span></div>
+      <h3 style="margin-top:1rem;">Jettons & LP-Anteile</h3>
+      <div class="list" id="jetton-list"><p class="muted">Wallet verbinden, um Jettons und LP-Token zu laden.</p></div>
+    </div>
+    <div class="card">
+      <h3>Transaktionsverlauf</h3>
+      <div class="list" id="tx-list"><p class="muted">Wallet verbinden, um den Verlauf aus der Blockchain zu laden.</p></div>
+    </div>
+  </section>
+
+  <!-- ================= PROFIL ================= -->
+  <section id="view-profil" data-view class="hidden" aria-label="Profil">
+    <div class="card">
+      <h3>Profil & Sitzungsverwaltung</h3>
+      <div class="token-balance"><span>Telegram:</span><span id="profile-tg">–</span></div>
+      <div class="token-balance"><span>Rolle:</span><span id="profile-role">USER</span></div>
+      <p class="muted" style="margin-bottom:0.3rem;">Aktive Wallet-Sitzung:</p>
+      <div class="addr" id="profile-wallet">Keine Wallet verbunden</div>
+      <p class="muted">Die aktive Wallet-Sitzung lässt sich hier nicht einzeln trennen, nur über den globalen Logout.</p>
+      <div class="token-balance"><span>Sprache:</span><span><button class="tab-btn" type="button" onclick="setLang('de')">DE</button> <button class="tab-btn" type="button" onclick="setLang('en')">EN</button></span></div>
+    </div>
+    <button class="btn btn-danger" type="button" onclick="globalLogout()">Globaler Logout</button>
+  </section>
+
+  <nav class="bottom-nav" aria-label="Hauptnavigation">
+    <button type="button" data-nav="home" aria-current="page" onclick="showTab('home')"><svg class="icon"><use href="#i-home"/></svg>Home</button>
+    <button type="button" data-nav="dex" onclick="showTab('dex')"><svg class="icon"><use href="#i-chart"/></svg>DEX</button>
+    <button type="button" data-nav="launchpad" onclick="showTab('launchpad')"><svg class="icon"><use href="#i-rocket"/></svg>Launchpad</button>
+    <button type="button" data-nav="staking" onclick="showTab('staking')"><svg class="icon"><use href="#i-coins"/></svg>Staking</button>
+    <button type="button" data-nav="profil" onclick="showTab('profil')"><svg class="icon"><use href="#i-user"/></svg>Profil</button>
+  </nav>
+
+  <dialog id="send-dialog" aria-labelledby="send-title">
+    <h3 id="send-title">TON senden</h3>
+    <input id="send-to" placeholder="Empfänger-Adresse (UQ.../EQ...)" aria-label="Empfänger" />
+    <input id="send-amount" type="number" placeholder="Betrag in TON" style="margin-top:0.5rem;" aria-label="Betrag in TON" />
+    <button class="btn" type="button" onclick="executeSend()">Mit Wallet bestätigen</button>
+    <button class="btn btn-ghost" type="button" onclick="this.closest('dialog').close()">Abbrechen</button>
+  </dialog>
+
+  <dialog id="receive-dialog" aria-labelledby="receive-title">
+    <h3 id="receive-title">Empfangen</h3>
+    <p class="muted">Deine Adresse:</p>
+    <div class="addr" id="receive-addr">Keine Wallet verbunden</div>
+    <button class="btn" type="button" onclick="copyAddress()">Adresse kopieren</button>
+    <button class="btn btn-ghost" type="button" onclick="this.closest('dialog').close()">Schließen</button>
+  </dialog>
 
   <script>
     let userAddress = null;
     let tgUserId = null;
+    let tc = null;
+    let network = 'mainnet';
     const TGRAM_API = "https://tgram-tau.vercel.app/api/copilot";
+    const TGRAM_VAULT = "UQAHf2mwKFjEprwz5fBS5k5brROrldthRCz-CVi5eVm95EuN";
     const DEX_FEE = 0.01;
+    const TONCENTER = { mainnet: "https://toncenter.com/api/v3", testnet: "https://testnet.toncenter.com/api/v3" };
     const creditSubject = () => tgUserId || userAddress;
+    const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    const short = a => a ? a.slice(0, 6) + "..." + a.slice(-4) : "";
+
+    // --- V4.1 Navigation ---
+    function showTab(name) {
+      document.querySelectorAll('[data-view]').forEach(v => v.classList.toggle('hidden', v.id !== 'view-' + name));
+      document.querySelectorAll('[data-nav]').forEach(b => { if (b.dataset.nav === name) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+      if (name === 'staking' && userAddress) loadChainData();
+      if (name === 'dex') loadPools();
+      window.scrollTo(0, 0);
+    }
+
+    function setLang(l) { document.documentElement.lang = l; }
 
     async function refreshCredits() {
       const el = document.getElementById("ai-credits");
@@ -144,7 +327,7 @@
       if (!s) { el.textContent = "verbinden..."; return; }
       try {
         const d = await (await fetch(TGRAM_API + "?subject=" + encodeURIComponent(s))).json();
-        el.innerHTML = d.pay ? `${d.available} <a href="${d.pay}" style="color:#38bdf8">aufladen</a>` : String(d.available);
+        el.innerHTML = d.pay ? `${esc(d.available)} <a href="${esc(d.pay)}" style="color:var(--primary)">aufladen</a>` : esc(d.available);
       } catch (e) { el.textContent = "offline"; }
     }
 
@@ -152,6 +335,12 @@
       const amt = Number(document.getElementById('swap-amount').value) || 0;
       document.getElementById('swap-fee').textContent = (amt * DEX_FEE).toFixed(4);
       document.getElementById('swap-net').textContent = (amt * (1 - DEX_FEE)).toFixed(4);
+    }
+
+    function updateDexFee() {
+      const amt = Number(document.getElementById('dex-amount').value) || 0;
+      document.getElementById('dex-fee').textContent = (amt * DEX_FEE).toFixed(4);
+      document.getElementById('dex-net').textContent = (amt * (1 - DEX_FEE)).toFixed(4);
     }
 
     function loadScript(src) {
@@ -162,7 +351,6 @@
       });
     }
 
-    // UI Logik
     function switchTab(tabId) {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('[id^="tab-"]').forEach(d => d.classList.add('hidden'));
@@ -172,29 +360,137 @@
 
     async function fetchAccountState(addr) {
       try {
-        const url = "https://toncenter.com/api/v3/accountStates?address=" + encodeURIComponent(addr) + "&include_boc=false";
-        const res = await fetch(url);
+        const res = await fetch(TONCENTER[network] + "/accountStates?address=" + encodeURIComponent(addr) + "&include_boc=false");
         if (!res.ok) throw new Error("HTTP " + res.status);
         const data = await res.json();
         const acc = (data.accounts && data.accounts[0]) || {};
         const ton = (Number(acc.balance || 0) / 1e9).toFixed(4);
         document.getElementById("wallet-banner").textContent = "OWNER: " + addr.slice(0,8) + "..." + addr.slice(-6) + " | " + ton + " TON";
+        document.getElementById("balance-ton").textContent = ton + " TON";
+        document.getElementById("stake-ton").textContent = ton + " TON";
       } catch (e) {
         document.getElementById("wallet-banner").textContent = "OWNER: " + addr.slice(0,10) + "... (Verifiziert)";
       }
     }
 
+    async function resolveName(addr) {
+      try {
+        const d = await (await fetch("https://tonapi.io/v2/accounts/" + encodeURIComponent(addr))).json();
+        if (d.name) document.getElementById("balance-name").textContent = d.name;
+      } catch (e) {}
+    }
+
+    async function loadChainData() {
+      if (!userAddress) return;
+      const base = TONCENTER[network];
+      const jl = document.getElementById("jetton-list");
+      const tl = document.getElementById("tx-list");
+      jl.innerHTML = tl.innerHTML = '<p class="muted">Lade aus der Blockchain...</p>';
+      try {
+        const j = await (await fetch(base + "/jetton/wallets?owner_address=" + encodeURIComponent(userAddress) + "&limit=20")).json();
+        const meta = j.metadata || {};
+        const rows = (j.jetton_wallets || []).filter(w => w.balance !== "0").map(w => {
+          const info = (meta[w.jetton] && meta[w.jetton].token_info && meta[w.jetton].token_info[0]) || {};
+          const dec = Number(info.extra && info.extra.decimals || 9);
+          const bal = (Number(w.balance) / 10 ** dec).toFixed(4);
+          const sym = info.symbol || short(w.jetton);
+          if (sym === "NEC") document.getElementById("stake-bal").textContent = bal;
+          if (sym === "AXF") document.getElementById("vault-bal").textContent = bal;
+          return `<div class="list-row"><span>${esc(sym)}${/LP|STON/i.test(info.name || "") ? " (LP)" : ""}</span><span>${esc(bal)}</span></div>`;
+        });
+        jl.innerHTML = rows.join("") || '<p class="muted">Keine Jettons oder LP-Token in dieser Wallet.</p>';
+      } catch (e) { jl.innerHTML = '<p class="warn">Jettons konnten nicht geladen werden.</p>'; }
+      try {
+        const t = await (await fetch(base + "/transactions?account=" + encodeURIComponent(userAddress) + "&limit=10&sort=desc")).json();
+        const explorer = network === "testnet" ? "https://testnet.tonviewer.com/transaction/" : "https://tonviewer.com/transaction/";
+        tl.innerHTML = (t.transactions || []).map(tx => {
+          const inVal = Number(tx.in_msg && tx.in_msg.value || 0);
+          const outVal = (tx.out_msgs || []).reduce((s, m) => s + Number(m.value || 0), 0);
+          const type = outVal > 0 ? "Ausgang" : "Eingang";
+          const amt = ((outVal || inVal) / 1e9).toFixed(4);
+          const date = new Date(tx.now * 1000).toLocaleString("de-DE");
+          const hash = tx.hash;
+          return `<div class="list-row"><span>${esc(date)}<br>${type} ${esc(amt)} TON</span><a href="${explorer + encodeURIComponent(hash)}" target="_blank" rel="noopener noreferrer">TX</a></div>`;
+        }).join("") || '<p class="muted">Noch keine Transaktionen.</p>';
+      } catch (e) { tl.innerHTML = '<p class="warn">Verlauf konnte nicht geladen werden.</p>'; }
+    }
+
+    let poolsLoaded = false;
+    async function loadPools() {
+      if (poolsLoaded) return;
+      const el = document.getElementById("pool-list");
+      try {
+        const d = await (await fetch("https://api.ston.fi/v1/assets/query", {
+          method: "POST",
+          headers: { "content-type": "application/x-www-form-urlencoded" },
+          body: "condition=" + encodeURIComponent("asset:popular") + "&limit=8",
+        })).json();
+        const assets = (d.asset_list || []).slice(0, 8);
+        el.innerHTML = assets.map(a => `<div class="list-row"><span>${esc(a.symbol)}/TON</span><span>${a.dex_price_usd ? "$" + Number(a.dex_price_usd).toFixed(4) : "–"}</span></div>`).join("")
+          || '<p class="muted">Keine Pools gefunden.</p>';
+        poolsLoaded = true;
+      } catch (e) {
+        el.innerHTML = '<p class="muted">STON.fi gerade nicht erreichbar. <a style="color:var(--primary)" href="https://app.ston.fi/pools" target="_blank" rel="noopener noreferrer">Pools direkt öffnen</a></p>';
+      }
+    }
+
+    function setNetwork(n) {
+      network = n;
+      document.getElementById("net-mainnet").setAttribute("aria-pressed", String(n === "mainnet"));
+      document.getElementById("net-testnet").setAttribute("aria-pressed", String(n === "testnet"));
+      document.getElementById("net-label").textContent = n === "mainnet" ? "Mainnet" : "Testnet";
+      document.getElementById("net-label").className = n === "mainnet" ? "ok" : "warn";
+      if (userAddress) { fetchAccountState(userAddress); loadChainData(); }
+    }
+
     function applyConnectedState(addr) {
       userAddress = addr;
-      document.getElementById("app-unified-btn").textContent = "Sitzung aktiv (" + addr.slice(0, 8) + ")";
+      const btn = document.getElementById("app-unified-btn");
+      btn.textContent = "Sitzung aktiv (" + addr.slice(0, 8) + ")";
+      btn.disabled = true;
       document.getElementById("dashboard").style.opacity = "1";
       document.getElementById("dashboard").style.pointerEvents = "auto";
+      document.getElementById("balance-name").textContent = short(addr);
+      document.getElementById("profile-wallet").textContent = addr;
+      document.getElementById("receive-addr").textContent = addr;
       fetchAccountState(addr);
+      resolveName(addr);
       refreshCredits();
-      
-      // Dummy-Daten für UI laden (Später via Cloudflare Bridge)
-      document.getElementById("stake-bal").textContent = "1,250.00";
-      document.getElementById("vault-bal").textContent = "4,200.00";
+      loadChainData();
+    }
+
+    async function globalLogout() {
+      if (!confirm("Wirklich global abmelden? Wallet- und Telegram-Sitzung werden beendet.")) return;
+      localStorage.removeItem("tgram_owner_wallet");
+      try { if (tc && tc.connected) await tc.disconnect(); } catch (e) {}
+      window.location.replace(window.location.pathname.replace(/app\/[^/]*$/, ''));
+    }
+
+    function openSend() {
+      if (!userAddress) return alert("Bitte zuerst Wallet verbinden.");
+      document.getElementById("send-dialog").showModal();
+    }
+    function openReceive() {
+      if (!userAddress) return alert("Bitte zuerst Wallet verbinden.");
+      document.getElementById("receive-dialog").showModal();
+    }
+    async function copyAddress() {
+      try { await navigator.clipboard.writeText(userAddress); alert("Adresse kopiert."); } catch (e) { alert(userAddress); }
+    }
+
+    async function sendTon(to, amountTon) {
+      if (!tc || !tc.connected) throw new Error("Wallet ist nicht über TON Connect verbunden.");
+      const nano = BigInt(Math.round(amountTon * 1e9)).toString();
+      return tc.sendTransaction({ validUntil: Math.floor(Date.now() / 1000) + 300, messages: [{ address: to, amount: nano }] });
+    }
+
+    async function executeSend() {
+      const to = document.getElementById("send-to").value.trim();
+      const amt = Number(document.getElementById("send-amount").value);
+      if (!/^[UEk0][Qf:][\w-]{40,}$/.test(to)) return alert("Ungültige TON-Adresse.");
+      if (!(amt > 0)) return alert("Bitte Betrag eingeben.");
+      try { await sendTon(to, amt); document.getElementById("send-dialog").close(); setTimeout(() => fetchAccountState(userAddress), 8000); }
+      catch (e) { alert("Senden abgebrochen: " + e.message); }
     }
 
     (async () => {
@@ -209,7 +505,9 @@
         tgUserId = String(u.id);
         refreshCredits();
         const isAdmin = (u.username || "").toLowerCase() === "satoramy";
-        document.getElementById("tg-status").innerHTML = `Telegram: <span class="ok">@${u.username || u.id}</span> (${isAdmin ? "MASTER / ADMIN" : "USER"})`;
+        document.getElementById("tg-status").innerHTML = `Telegram: <span class="ok">@${esc(u.username || u.id)}</span> (${isAdmin ? "MASTER / ADMIN" : "USER"})`;
+        document.getElementById("profile-tg").textContent = "@" + (u.username || u.id);
+        document.getElementById("profile-role").textContent = isAdmin ? "MASTER / ADMIN" : "USER";
       } else {
         document.getElementById("tg-status").innerHTML = `Telegram: <span class="ok">Web & Mini-App Session</span>`;
       }
@@ -218,7 +516,7 @@
       if (savedWallet) applyConnectedState(savedWallet);
 
       if (window.TON_CONNECT_UI) {
-        const tc = new TON_CONNECT_UI.TonConnectUI({
+        tc = new TON_CONNECT_UI.TonConnectUI({
           manifestUrl: window.location.origin + "/TGRAM/tonconnect-manifest.json",
           buttonRootId: "ton-connect-root"
         });
@@ -235,62 +533,76 @@
       }
     })();
 
-    // --- INTERAKTIVE FUNKTIONEN (Platzhalter für Smart-Contract Calls) ---
+    // --- DEX: 1 % Gebühr on-chain an den Vault, dann Swap via STON.fi ---
+    async function payFeeAndSwap(from, to, amt) {
+      if (from === to) return alert("Bitte zwei verschiedene Token wählen.");
+      const fee = amt * DEX_FEE;
+      const net = amt - fee;
+      if (from === "TON") {
+        try { await sendTon(TGRAM_VAULT, fee); }
+        catch (e) { return alert("Gebühr nicht bezahlt, Swap abgebrochen: " + e.message); }
+      } else {
+        alert(`Gebühr 1 %: ${fee.toFixed(4)} ${from} wird im nächsten Schritt an den TGRAM Vault (${short(TGRAM_VAULT)}) gesendet.`);
+      }
+      window.open(`https://app.ston.fi/swap?ft=${encodeURIComponent(from)}&tt=${encodeURIComponent(to)}&fa=${encodeURIComponent(net.toFixed(4))}`, "_blank", "noopener");
+    }
+
     function executeSwap() {
       const from = document.getElementById('swap-from').value;
       const to = document.getElementById('swap-to').value;
-      const amt = document.getElementById('swap-amount').value;
-      if(!amt || amt <= 0) return alert("Bitte Betrag eingeben.");
-      const fee = (amt * DEX_FEE).toFixed(4);
-      alert(`[DEX] Swap: ${amt} ${from} -> ${to}\nPlattform-Gebühr 1 %: ${fee} ${from} an den TGRAM Vault.\n(Ausführung via Smart Contract)`);
+      const amt = Number(document.getElementById('swap-amount').value);
+      if (!(amt > 0)) return alert("Bitte Betrag eingeben.");
+      payFeeAndSwap(from, to, amt);
       document.getElementById('swap-amount').value = '';
       updateSwapFee();
+    }
+
+    function executeDexSwap() {
+      const amt = Number(document.getElementById('dex-amount').value);
+      if (!userAddress) return alert("Bitte zuerst Wallet verbinden.");
+      if (!(amt > 0)) return alert("Bitte Betrag eingeben.");
+      payFeeAndSwap(document.getElementById('dex-from').value, document.getElementById('dex-to').value, amt);
     }
 
     function executeStake() {
       const amt = document.getElementById('stake-amount').value;
       if(!amt || amt <= 0) return alert("Bitte NEC Betrag eingeben.");
-      alert(`[STAKING] ${amt} NEC erfolgreich in den Pool eingezahlt.`);
+      window.open("https://app.ston.fi/pools", "_blank", "noopener");
       document.getElementById('stake-amount').value = '';
     }
 
     function claimVault() {
-      alert(`[XP-VAULT] 50 AXF und 10 XP erfolgreich abgeholt!`);
+      alert(`[XP-VAULT] 10 XP abgeholt. AXF-Rendite wird on-chain im Staking-Tab angezeigt.`);
       let lvl = parseInt(document.getElementById('xp-level').textContent);
       document.getElementById('xp-level').textContent = lvl + 1;
     }
 
-    // --- COPILOT ---
+    // --- COPILOT (kostenlos, Credits optional) ---
     async function askCopilot() {
       const inp = document.getElementById("chat-input");
       const box = document.getElementById("chat-box");
       const q = inp.value.trim();
       if (!q) return;
-      const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
       box.innerHTML += `<div><strong>Du:</strong> ${esc(q)}</div>`;
       inp.value = "";
-      if (!creditSubject()) {
-        box.innerHTML += `<div><strong>Copilot:</strong> Bitte zuerst Wallet oder Telegram verbinden.</div>`;
-        return;
-      }
       try {
         const res = await fetch(TGRAM_API, {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ subject: creditSubject(), prompt: q, kind: "ai" }),
+          body: JSON.stringify({ subject: creditSubject() || "guest", prompt: q, kind: "ai" }),
         });
         const d = await res.json();
-        if (res.status === 402) {
-          box.innerHTML += `<div><strong>Copilot:</strong> Nicht genug Credits (${d.available}). Aufladen mit Kommentar TGRAM:${esc(creditSubject())}${d.pay ? ` – <a href="${d.pay}" style="color:#38bdf8">jetzt zahlen</a>` : ""}</div>`;
-        } else {
-          box.innerHTML += `<div><strong>Copilot:</strong> ${esc(d.answer || d.error)}</div>`;
-        }
+        box.innerHTML += `<div><strong>Copilot:</strong> ${esc(d.answer || d.error || "Keine Antwort.")}</div>`;
         refreshCredits();
       } catch (e) {
         box.innerHTML += `<div><strong>Copilot:</strong> Verbindungsfehler zum Serverless Proxy.</div>`;
       }
       box.scrollTop = box.scrollHeight;
     }
+
+    document.getElementById("chat-input").addEventListener("keydown", e => {
+      if (e.key === "Enter" && !e.nativeEvent?.isComposing && !e.isComposing && e.keyCode !== 229) askCopilot();
+    });
   </script>
 </body>
 </html>

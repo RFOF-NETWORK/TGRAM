@@ -36,7 +36,7 @@
     <p style="color:#94a3b8; margin-top:0;">Direkt mit <strong>@Satoramy</strong> auf Telegram verbinden:</p>
     <nav aria-label="Telegram Links" style="display:flex; flex-direction:column; gap:0.6rem;">
       <a id="tg-chat-link" class="tg-link" href="https://t.me/Satoramy" target="_blank" rel="noopener noreferrer">Chat mit @Satoramy öffnen</a>
-      <a id="tg-miniapp-link" class="tg-link tg-link-sec" href="https://t.me/Satoramy?startapp=tgram" target="_blank" rel="noopener noreferrer">TGRAM Mini App in Telegram starten</a>
+      <a id="tg-miniapp-link" class="tg-link tg-link-sec" href="https://t.me/toncoing_bot?startapp=tgram" target="_blank" rel="noopener noreferrer">TGRAM Mini App in Telegram starten</a>
     </nav>
     <div style="margin-top:1rem;">
       <p style="color:#94a3b8; margin:0 0 0.5rem;">Mit Telegram anmelden:</p>
@@ -47,7 +47,7 @@
   <script>
     (function mountTelegramLogin() {
       // Telegram Login requires a @BotFather bot username (not a personal account).
-      const TG_USERNAME = '';
+      const TG_USERNAME = 'toncoing_bot';
       if (!TG_USERNAME) {
         document.getElementById('tg-login-widget').innerHTML = '<p style="color:#fbbf24; font-size:0.85rem; margin:0;">Login-Widget inaktiv: Bot-Benutzername aus @BotFather fehlt. Chat- und Mini-App-Link funktionieren bereits.</p>';
         return;
@@ -101,12 +101,21 @@
 
       statusEl.textContent = 'Status: Bereit (Telegram, TON & Web3)';
 
+      const markLoggedIn = () => {
+        statusEl.style.color = '#4ade80';
+        statusEl.textContent = 'STATUS: EINGELOGGT';
+        const btn = document.getElementById('unified-btn');
+        btn.disabled = true;
+        btn.style.opacity = '0.4';
+        btn.style.cursor = 'not-allowed';
+      };
+      if (localStorage.getItem('tgram_owner_wallet')) markLoggedIn();
+
       tonConnectUI.onStatusChange(wallet => {
         if (wallet) {
-          statusEl.style.color = '#4ade80';
-          statusEl.textContent = 'Verbunden & an Termux übergeben: ' + wallet.account.address;
           localStorage.setItem('tgram_owner_wallet', wallet.account.address);
           syncToTermux(wallet.account.address);
+          markLoggedIn();
         }
       });
 
