@@ -1,6 +1,6 @@
 // @toncoing_bot webhook (Vercel). Set once:
 // https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://tgram-tau.vercel.app/api/telegram&secret_token=<TELEGRAM_WEBHOOK_SECRET>
-const { PRICING, balance, charge, paymentLink, askAI, VAULT, ledger, explorerLinks, accountLinks, botLatestTx } = require("./_economy");
+const { PRICING, balance, charge, paymentLink, askAI, VAULT, ledger, explorerLinks, accountLinks, botLatestTx, rewardAI } = require("./_economy");
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || "";
@@ -19,15 +19,19 @@ const fmt = (n) => (n == null ? "-" : Number(n.toFixed(6)).toString());
 
 // Every bot message links the user's latest real on-chain transaction on Tonviewer and
 // Tonscan, so costs and the bot-paid AI stay verifiable. No account-level fallback links.
-async function txFooter(subject) {
+const utc = (s) => (s ? " · " + new Date(s * 1000).toISOString().slice(0, 16).replace("T", " ") + " UTC" : "");
+
+async function txFooter(subject, reward) {
   let latest = null;
   try { latest = (await ledger(String(subject))).txs[0] || null; } catch {}
-  const aiCost = PRICING.cost.ai ? `${PRICING.cost.ai} Credits` : "0 (zahlt @toncoing_bot)";
+  const aiCost = PRICING.cost.ai ? `${PRICING.cost.ai} Credits` : "0 fuer dich (zahlt @toncoing_bot)";
+  const rewardLine = reward
+    ? `\nGeschenkter Wert: +${reward.earned} Star (KI-Interaktions-Belohnung statt Referral) · gesamt ${reward.total} Stars`
+    : "";
   if (latest) {
     const links = explorerLinks(latest.hash);
-    const when = latest.utime ? new Date(latest.utime * 1000).toISOString().slice(0, 16).replace("T", " ") : "";
     return {
-      text: `\n\n— Letzte Tx: ${fmt(latest.amount)} ${latest.token} · Netzgebuehr ${fmt(latest.fee)} TON${when ? " · " + when + " UTC" : ""}\nKI-Kosten: ${aiCost}`,
+      text: `\n\n— KI-Kosten: ${aiCost}${rewardLine}\nNachweis: deine letzte Tx ${fmt(latest.amount)} ${latest.token} · Netzgebuehr ${fmt(latest.fee)} TON${utc(latest.utime)}`,
       row: links ? [{ text: "Tonviewer", url: links.tonviewer }, { text: "Tonscan", url: links.tonscan }] : [],
     };
   }
@@ -35,19 +39,18 @@ async function txFooter(subject) {
   try { bot = await botLatestTx(); } catch {}
   const botLinks = bot && explorerLinks(bot.hash);
   if (botLinks) {
-    const when = bot.utime ? new Date(bot.utime * 1000).toISOString().slice(0, 16).replace("T", " ") : "";
     return {
-      text: `\n\n— KI-Kosten: ${aiCost}\nBezahlt von der Bot-Wallet · letzte Tx · Netzgebuehr ${fmt(bot.fee)} TON${when ? " · " + when + " UTC" : ""}`,
+      text: `\n\n— KI-Kosten: ${aiCost}${rewardLine}\nNachweis: Bot-Wallet Tx · Netzgebuehr ${fmt(bot.fee)} TON${utc(bot.utime)}`,
       row: [{ text: "Tonviewer", url: botLinks.tonviewer }, { text: "Tonscan", url: botLinks.tonscan }],
     };
   }
-  return { text: `\n\n— KI-Kosten: ${aiCost}`, row: [] };
+  return { text: `\n\n— KI-Kosten: ${aiCost}${rewardLine}`, row: [] };
 }
 
 const reply = (chat_id, text, extra = {}) => sendReply(chat_id, text, extra);
 
-async function sendReply(chat_id, text, extra = {}, subject = chat_id) {
-  const footer = await txFooter(subject);
+async function sendReply(chat_id, text, extra = {}, subject = chat_id, reward = null) {
+  const footer = await txFooter(subject, reward);
   const keyboard = extra.reply_markup?.inline_keyboard || [];
   const body = String(text).slice(0, MAX_TEXT) + footer.text;
   const reply_markup = footer.row.length ? { ...extra.reply_markup, inline_keyboard: [...keyboard, footer.row] } : extra.reply_markup;
@@ -191,7 +194,8 @@ async function handle(msg) {
   if (!c.ok) return needCredits(chatId, uid, c);
   await tg("sendChatAction", { chat_id: chatId, action: "typing" });
   const answer = await askAI(question);
-  return reply(chatId, c.free ? answer : `${answer}\n\n(-${c.cost} Credits, Rest ${c.available})`);
+  const reward = rewardAI(uid);
+  return sendReply(chatId, c.free ? answer : `${answer}\n\n(-${c.cost} Credits, Rest ${c.available})`, {}, uid, reward);
 }
 
 module.exports = async (req, res) => {

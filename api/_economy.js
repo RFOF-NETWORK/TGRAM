@@ -24,10 +24,28 @@ const PRICING = {
 
 const usage = new Map(); // per-instance usage ledger; plug a DB here for multi-instance persistence
 
-async function fetchJson(url) {
-  const r = await fetch(url, { headers: { accept: "application/json" } });
-  if (!r.ok) throw new Error(`toncenter ${r.status}`);
-  return r.json();
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+
+// Toncenter without an API key allows 1 request/second and answers the rest with 429.
+async function fetchJson(url, retries = 2) {
+  for (let attempt = 0; ; attempt++) {
+    const r = await fetch(url, { headers: { accept: "application/json" } });
+    if (r.status === 429 && attempt < retries) { await sleep(1100 * (attempt + 1)); continue; }
+    if (!r.ok) throw new Error(`fetch ${r.status}`);
+    return r.json();
+  }
+}
+
+const VAULT_TTL_MS = 30_000;
+let vaultCache = { at: 0, value: null, pending: null };
+// One shared fetch of the vault's transactions per 30 s, used by every ledger and footer lookup.
+async function vaultTransactions() {
+  if (vaultCache.value && Date.now() - vaultCache.at < VAULT_TTL_MS) return vaultCache.value;
+  if (vaultCache.pending) return vaultCache.pending;
+  vaultCache.pending = fetchJson(`${TONCENTER}/transactions?account=${encodeURIComponent(VAULT)}&limit=256&sort=desc`)
+    .then((d) => { vaultCache = { at: Date.now(), value: d.transactions || [], pending: null }; return vaultCache.value; })
+    .catch((e) => { vaultCache.pending = null; if (vaultCache.value) return vaultCache.value; throw e; });
+  return vaultCache.pending;
 }
 
 const toHex = (hash) => {
@@ -56,8 +74,7 @@ async function ledger(subject) {
   let credits = 0;
   if (VAULT) {
     try {
-      const tx = await fetchJson(`${TONCENTER}/transactions?account=${encodeURIComponent(VAULT)}&limit=256&sort=desc`);
-      for (const t of tx.transactions || []) {
+      for (const t of await vaultTransactions()) {
         const msg = t.in_msg || {};
         const comment = msg.message_content?.decoded?.comment || "";
         if (comment.trim() !== tag) continue;
@@ -154,15 +171,25 @@ async function askAI(prompt) {
 }
 
 // Latest real transaction of the bot wallet that covers free AI usage.
-let botTxCache = { at: 0, value: null };
 async function botLatestTx() {
-  if (botTxCache.value && Date.now() - botTxCache.at < LEDGER_TTL_MS) return botTxCache.value;
-  const data = await fetchJson(`${TONCENTER}/transactions?account=${encodeURIComponent(VAULT)}&limit=1&sort=desc`);
-  const t = (data.transactions || [])[0];
-  if (!t) return null;
-  const value = { hash: t.hash, utime: t.now, fee: Number(t.total_fees || 0) / 1e9 };
-  botTxCache = { at: Date.now(), value };
-  return value;
+  try {
+    const t = (await vaultTransactions())[0];
+    if (t) return { hash: t.hash, utime: t.now, fee: Number(t.total_fees || 0) / 1e9 };
+  } catch {}
+  const d = await fetchJson(`https://tonapi.io/v2/blockchain/accounts/${encodeURIComponent(VAULT)}/transactions?limit=1`, 1);
+  const t = (d.transactions || [])[0];
+  return t ? { hash: t.hash, utime: t.utime, fee: Number(t.total_fees || 0) / 1e9 } : null;
 }
 
-module.exports = { PRICING, balance, charge, paymentLink, askAI, VAULT, ledger, explorerLinks, accountLinks, botLatestTx };
+// Value reward for AI interactions (instead of a referral reward): every answer the bot
+// pays for puts value into circulation, and the user is credited Stars-points for it.
+// Per-instance like `usage`; plug a DB here for persistence across serverless instances.
+const AI_REWARD_STARS = Number(process.env.TGRAM_AI_REWARD_STARS || 1);
+const rewards = new Map();
+function rewardAI(subject) {
+  const total = (rewards.get(subject) || 0) + AI_REWARD_STARS;
+  rewards.set(subject, total);
+  return { earned: AI_REWARD_STARS, total };
+}
+
+module.exports = { PRICING, balance, charge, paymentLink, askAI, VAULT, ledger, explorerLinks, accountLinks, botLatestTx, rewardAI };
