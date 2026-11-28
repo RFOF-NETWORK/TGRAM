@@ -647,6 +647,20 @@
     <button class="btn btn-ghost" type="button" onclick="this.closest('dialog').close('deny')">Ablehnen</button>
   </dialog>
 
+  <dialog id="preflight-dialog" aria-labelledby="preflight-title">
+    <h3 id="preflight-title">Pre-Flight-Prüfung</h3>
+    <fieldset id="preflight-mode" style="border:0;padding:0;margin:0 0 8px;display:flex;gap:12px;flex-wrap:wrap">
+ <legend class="muted">Prüfmodus</legend>
+ <label><input type="radio" name="pf-mode" value="both" checked> Beide</label>
+ <label><input type="radio" name="pf-mode" value="mainnet"> Mainnet-Simulation</label>
+ <label><input type="radio" name="pf-mode" value="testnet"> Testnet-Lauf</label>
+ </fieldset>
+ <p class="muted" id="preflight-status" role="status" aria-live="polite">Simuliere auf dem aktuellen Mainnet-Stand…</p>
+    <div id="preflight-checks"></div>
+    <button class="btn" type="button" id="preflight-yes" hidden>Jetzt signieren</button>
+    <button class="btn btn-ghost" type="button" onclick="this.closest('dialog').close('deny')">Abbrechen</button>
+  </dialog>
+
   <dialog id="token-sheet" class="sheet" aria-labelledby="token-sheet-title">
     <div class="sheet-head"><h3 id="token-sheet-title">Token wählen</h3><button type="button" class="chip" onclick="document.getElementById('token-sheet').close()">Fertig</button></div>
     <input id="token-search" type="search" placeholder="Suchen: Name, Symbol oder Adresse" aria-label="Token suchen" oninput="renderTokenSheet()" autocomplete="off" />
@@ -1341,10 +1355,65 @@
       try { await navigator.clipboard.writeText(userAddress); alert("Adresse kopiert."); } catch (e) { alert(userAddress); }
     }
 
+    // Every wallet transaction is simulated server-side first; the wallet is only asked to sign
+    // when every check passes. A failed or unreachable check blocks the transaction.
+    async function guardedSend(tx) {
+      const dlg = document.getElementById('preflight-dialog');
+      const status = document.getElementById('preflight-status');
+      const list = document.getElementById('preflight-checks');
+      const yes = document.getElementById('preflight-yes');
+      const radios = dlg.querySelectorAll('input[name="pf-mode"]');
+      const saved = localStorage.getItem('tgram-preflight-mode');
+      radios.forEach(r => { if (saved) r.checked = r.value === saved; });
+      if (!dlg.open) dlg.showModal();
+      const NET_LABEL = { mainnet: 'Mainnet-Simulation', testnet: 'Testnet-Lauf' };
+      const row = c => `<div class="check-row"><span>${esc(c.name)}<br><span class="muted">${esc(c.detail)}</span></span><span class="st ${c.ok ? 'ok' : 'bad'}">${c.ok ? 'OK' : 'STOP'}</span></div>`;
+      let result;
+      let seq = 0;
+      const run = async () => {
+        const mine = ++seq;
+        const mode = dlg.querySelector('input[name="pf-mode"]:checked').value;
+        localStorage.setItem('tgram-preflight-mode', mode);
+        status.textContent = mode === 'testnet' ? 'Teste auf dem Testnet…' : mode === 'both' ? 'Simuliere auf Mainnet und teste auf dem Testnet…' : 'Simuliere auf dem aktuellen Mainnet-Stand…';
+        list.innerHTML = '';
+        yes.hidden = true;
+        let res;
+        try {
+          const r = await fetch(API_BASE + '/preflight', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ from: userAddress, messages: tx.messages, mode }) });
+          res = await r.json();
+        } catch (e) {
+          res = { ok: false, checks: [{ name: 'Simulation erreichbar', ok: false, detail: 'Keine Verbindung zur Prüfung. Zur Sicherheit blockiert.' }] };
+        }
+        if (mine !== seq) return;
+        result = res;
+        list.innerHTML = res.runs
+          ? Object.entries(res.runs).map(([net, rr]) => `<h4>${NET_LABEL[net]}${rr.skipped ? ' (übersprungen)' : ''}</h4>` + rr.checks.map(row).join('')).join('')
+          : (res.checks || []).map(row).join('');
+        if (!res.ok) {
+          status.textContent = 'Blockiert: Diese Transaktion würde scheitern. Es wurde nichts gesendet. Du kannst einen anderen Prüfmodus wählen.';
+          return;
+        }
+        const fee = res.runs?.mainnet?.feeTon ?? res.feeTon;
+        const note = res.mode === 'testnet' ? ' Hinweis: nur auf dem Testnet geprüft, der Mainnet-Stand kann abweichen.' : res.runs?.testnet?.skipped ? ' Testnet-Lauf übersprungen (kein Testnet-Guthaben).' : '';
+        status.textContent = `Alles grün.${fee != null ? ` Geschätzte Netzwerkgebühr: ${Number(fee).toFixed(5)} TON.` : ''}${note}`;
+        yes.hidden = false;
+      };
+      radios.forEach(r => { r.onchange = run; });
+      await run();
+      // The sign button is only shown while the latest result for the chosen mode is green.
+      const choice = await new Promise(resolve => {
+        yes.onclick = () => dlg.close('ok');
+        dlg.addEventListener('close', () => resolve(dlg.returnValue), { once: true });
+      });
+      radios.forEach(r => { r.onchange = null; });
+      if (choice !== 'ok' || !result?.ok) throw new Error(result?.ok ? 'Abgebrochen.' : 'Pre-Flight hat die Transaktion blockiert.');
+      return tc.sendTransaction(tx);
+    }
+
     async function sendTon(to, amountTon) {
       if (!tc || !tc.connected) throw new Error("Wallet ist nicht über TON Connect verbunden.");
       const nano = BigInt(Math.round(amountTon * 1e9)).toString();
-      return tc.sendTransaction({ validUntil: Math.floor(Date.now() / 1000) + 300, messages: [{ address: to, amount: nano }] });
+      return guardedSend({ validUntil: Math.floor(Date.now() / 1000) + 300, messages: [{ address: to, amount: nano }] });
     }
 
     // TEP-74 jetton transfer: message to the user's own jetton wallet; the gas is paid in TON from the user's wallet.
@@ -1362,7 +1431,7 @@
         .storeAddress(Address.parse(userAddress))
         .storeBit(0).storeCoins(1n).storeBit(0)
         .endCell();
-      return tc.sendTransaction({
+      return guardedSend({
         validUntil: Math.floor(Date.now() / 1000) + 300,
         messages: [{ address: Address.parse(j.wallet).toString({ bounceable: true }), amount: "50000000", payload: body.toBoc().toString("base64") }],
       });
