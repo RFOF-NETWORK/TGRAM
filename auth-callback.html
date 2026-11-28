@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Telegram Login Callback</title></head>
+<body>
+    <h1>Login erfolgreich!</h1>
+    <p id="status">Verarbeite Daten...</p>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const data = Object.fromEntries(params.entries());
+        document.getElementById('status').textContent = "Empfangene Daten: " + JSON.stringify(data, null, 2);
+        // Optional: Sende die Daten an dein Backend zur Validierung
+        // fetch('https://dein-backend.com/validate', { method: 'POST', body: JSON.stringify(data) });
+    </script>
+</body>
+</html>
