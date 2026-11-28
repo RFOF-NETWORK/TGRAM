@@ -111,16 +111,18 @@ async function isAdmin(uid) {
 async function adminStats() {
   const [users, events] = await Promise.all([
     rest("tg_users?select=tg_id,stars_earned,axf_minted,ai_points,last_seen"),
-    rest("tg_events?select=chars,stars"),
+    rest("tg_events?select=chars,kind,meta"),
   ]);
   const dayAgo = Date.now() - 864e5;
   return {
+    cells: events.reduce((s, e) => s + Number(e.meta?.cells || 0), 0),
+    aiReplies: events.filter(e => e.kind === "ai").length,
     users: users.length,
     active24h: users.filter(u => Date.parse(u.last_seen) > dayAgo).length,
     stars: users.reduce((s, u) => s + u.stars_earned, 0),
     axf: users.reduce((s, u) => s + Number(u.axf_minted), 0),
     points: users.reduce((s, u) => s + Number(u.ai_points), 0),
-    messages: events.length,
+    messages: events.filter(e => e.kind === "msg" || e.kind === "cmd").length,
     chars: events.reduce((s, e) => s + e.chars, 0),
   };
 }
@@ -157,4 +159,4 @@ async function setReferrer(uid, referrerId) {
   return true;
 }
 
-module.exports = { setReferrer, REFERRAL_POINTS, touchUser, logEvent, settleStars, setData, getData, myOverview, deleteMe, isAdmin, adminStats, adminId, saveAutopilotReport, KEY_RE };
+module.exports = { rest, setReferrer, REFERRAL_POINTS, touchUser, logEvent, settleStars, setData, getData, myOverview, deleteMe, isAdmin, adminStats, adminId, saveAutopilotReport, KEY_RE };

@@ -141,6 +141,12 @@ async function handle(msg) {
   const cmd = cmdRaw.split("@")[0].toLowerCase();
   const arg = rest.join(" ").trim();
   const me = msg.from ? await userdb.touchUser(msg.from).catch(e => (console.error("userdb", e.message), null)) : null;
+  if (me && text) {
+    const inbound = cells.chain(text);
+    await userdb
+      .logEvent(uid, text.startsWith("/") ? "cmd" : "msg", { chars: inbound.chars, meta: { cells: inbound.cells, gram: inbound.gram, axf: inbound.axf } })
+      .catch(e => console.error("userdb log", e.message));
+  }
 
   if (cmd === "/meinedaten") {
     const o = await userdb.myOverview(uid);
@@ -177,7 +183,7 @@ async function handle(msg) {
     const s = await userdb.adminStats();
     return reply(
       chatId,
-      `Admin-Uebersicht\nNutzer: ${s.users} (aktiv 24h: ${s.active24h})\nNachrichten: ${s.messages} | Zeichen: ${s.chars}\nKI-Punkte offen: ${s.points} | Echte Stars ausgezahlt: ${s.stars} | AXF gesamt: ${s.axf}`,
+      `Admin-Uebersicht\nNutzer: ${s.users} (aktiv 24h: ${s.active24h})\nNachrichten: ${s.messages} (KI-Antworten: ${s.aiReplies}) | Zeichen: ${s.chars} | Cells: ${s.cells}\nKI-Punkte offen: ${s.points} | Echte Stars ausgezahlt: ${s.stars} | AXF gesamt: ${s.axf}`,
     );
   }
 
@@ -280,8 +286,9 @@ async function handle(msg) {
   const [answer, proof] = await Promise.all([askAI(question, extension), signAIReply(uid)]);
   const reward = rewardAI(uid);
   const cost = cells.chain(question + String(answer));
-  userdb
-    .logEvent(uid, "ai", { chars: cost.chars, points: cost.stars, meta: { cells: cost.cells, gram: cost.gram, axf: cost.axf } })
+  const answerChars = String(answer).length;
+  await userdb
+    .logEvent(uid, "ai", { chars: answerChars, points: cost.stars, meta: { cells: cost.cells, gram: cost.gram, axf: cost.axf } })
     .catch(e => console.error("userdb log", e.message));
   return sendReply(chatId, c.free ? answer : `${answer}\n\n(-${c.cost} Credits, Rest ${c.available})`, {}, uid, reward, proof);
 }
