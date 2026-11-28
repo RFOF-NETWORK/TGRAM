@@ -647,6 +647,14 @@
     <button class="btn btn-ghost" type="button" onclick="this.closest('dialog').close('deny')">Ablehnen</button>
   </dialog>
 
+  <dialog id="preflight-dialog" aria-labelledby="preflight-title">
+    <h3 id="preflight-title">Pre-Flight-Prüfung</h3>
+    <p class="muted" id="preflight-status" role="status" aria-live="polite">Simuliere auf dem aktuellen Mainnet-Stand…</p>
+    <div id="preflight-checks"></div>
+    <button class="btn" type="button" id="preflight-yes" hidden>Jetzt signieren</button>
+    <button class="btn btn-ghost" type="button" onclick="this.closest('dialog').close('deny')">Abbrechen</button>
+  </dialog>
+
   <dialog id="token-sheet" class="sheet" aria-labelledby="token-sheet-title">
     <div class="sheet-head"><h3 id="token-sheet-title">Token wählen</h3><button type="button" class="chip" onclick="document.getElementById('token-sheet').close()">Fertig</button></div>
     <input id="token-search" type="search" placeholder="Suchen: Name, Symbol oder Adresse" aria-label="Token suchen" oninput="renderTokenSheet()" autocomplete="off" />
@@ -1341,10 +1349,44 @@
       try { await navigator.clipboard.writeText(userAddress); alert("Adresse kopiert."); } catch (e) { alert(userAddress); }
     }
 
+    // Every wallet transaction is simulated server-side first; the wallet is only asked to sign
+    // when every check passes. A failed or unreachable check blocks the transaction.
+    async function guardedSend(tx) {
+      const dlg = document.getElementById('preflight-dialog');
+      const status = document.getElementById('preflight-status');
+      const list = document.getElementById('preflight-checks');
+      const yes = document.getElementById('preflight-yes');
+      status.textContent = 'Simuliere auf dem aktuellen Mainnet-Stand…';
+      list.innerHTML = '';
+      yes.hidden = true;
+      if (!dlg.open) dlg.showModal();
+      let result;
+      try {
+        const r = await fetch(API_BASE + '/preflight', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ from: userAddress, messages: tx.messages }) });
+        result = await r.json();
+      } catch (e) {
+        result = { ok: false, checks: [{ name: 'Simulation erreichbar', ok: false, detail: 'Keine Verbindung zur Prüfung. Zur Sicherheit blockiert.' }] };
+      }
+      list.innerHTML = (result.checks || []).map(c => `<div class="check-row"><span>${esc(c.name)}<br><span class="muted">${esc(c.detail)}</span></span><span class="st ${c.ok ? 'ok' : 'bad'}">${c.ok ? 'OK' : 'STOP'}</span></div>`).join('');
+      if (!result.ok) {
+        status.textContent = 'Blockiert: Diese Transaktion würde scheitern. Es wurde nichts gesendet.';
+        await new Promise(resolve => dlg.addEventListener('close', resolve, { once: true }));
+        throw new Error('Pre-Flight hat die Transaktion blockiert.');
+      }
+      status.textContent = `Alles grün. Geschätzte Netzwerkgebühr: ${Number(result.feeTon || 0).toFixed(5)} TON.`;
+      yes.hidden = false;
+      const choice = await new Promise(resolve => {
+        yes.onclick = () => dlg.close('ok');
+        dlg.addEventListener('close', () => resolve(dlg.returnValue), { once: true });
+      });
+      if (choice !== 'ok') throw new Error('Abgebrochen.');
+      return tc.sendTransaction(tx);
+    }
+
     async function sendTon(to, amountTon) {
       if (!tc || !tc.connected) throw new Error("Wallet ist nicht über TON Connect verbunden.");
       const nano = BigInt(Math.round(amountTon * 1e9)).toString();
-      return tc.sendTransaction({ validUntil: Math.floor(Date.now() / 1000) + 300, messages: [{ address: to, amount: nano }] });
+      return guardedSend({ validUntil: Math.floor(Date.now() / 1000) + 300, messages: [{ address: to, amount: nano }] });
     }
 
     // TEP-74 jetton transfer: message to the user's own jetton wallet; the gas is paid in TON from the user's wallet.
@@ -1362,7 +1404,7 @@
         .storeAddress(Address.parse(userAddress))
         .storeBit(0).storeCoins(1n).storeBit(0)
         .endCell();
-      return tc.sendTransaction({
+      return guardedSend({
         validUntil: Math.floor(Date.now() / 1000) + 300,
         messages: [{ address: Address.parse(j.wallet).toString({ bounceable: true }), amount: "50000000", payload: body.toBoc().toString("base64") }],
       });
