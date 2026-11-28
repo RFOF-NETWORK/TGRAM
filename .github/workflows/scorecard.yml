@@ -11,7 +11,7 @@ jobs:
   analysis:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { persist-credentials: false }
       # v2.4.0 pulled from gcr.io, which now fails with a Google billing error; v2.6.0 uses ghcr.io
       - uses: ossf/scorecard-action@v2.6.0
