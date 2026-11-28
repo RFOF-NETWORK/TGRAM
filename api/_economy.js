@@ -1,6 +1,6 @@
 // TGRAM Economy: shared by /api/telegram (bot) and /api/copilot (website).
 // Credits are derived from on-chain payments to the TGRAM vault whose comment is
-// "TGRAM:<telegram-id or wallet>". Nothing is free: every AI call / command costs credits.
+// "TGRAM:<telegram-id or wallet>". AI and commands are free; paid credits are value support.
 
 const VAULT = process.env.TON_MULTISIG_VAULT || "";
 const TONCENTER = "https://toncenter.com/api/v3";
@@ -8,7 +8,13 @@ const TONCENTER = "https://toncenter.com/api/v3";
 const PRICING = {
   creditsPerTon: 100,        // 1 TON  -> 100 credits
   creditsPerJetton: 1,       // 1 Jetton (NEC/BBC/AXF) -> 1 credit
-  cost: { ai: 2, command: 1, game: 1 },
+  // AI, commands and game are free by default; credits are an optional value boost.
+  // Set TGRAM_COST_AI / TGRAM_COST_COMMAND / TGRAM_COST_GAME > 0 to re-enable paid usage.
+  cost: {
+    ai: Number(process.env.TGRAM_COST_AI || 0),
+    command: Number(process.env.TGRAM_COST_COMMAND || 0),
+    game: Number(process.env.TGRAM_COST_GAME || 0),
+  },
   dexFeePercent: 1,          // 1 % platform fee on DEX swaps
 };
 
@@ -49,7 +55,8 @@ async function balance(subject) {
 }
 
 async function charge(subject, kind) {
-  const cost = PRICING.cost[kind] ?? 1;
+  const cost = PRICING.cost[kind] ?? 0;
+  if (cost <= 0) return { ok: true, cost: 0, free: true };
   const b = await balance(subject);
   if (b.available < cost) return { ok: false, cost, ...b };
   usage.set(subject, (usage.get(subject) || 0) + cost);
