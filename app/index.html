@@ -318,6 +318,14 @@
       <button class="btn" type="submit">Token + Mini App launchen</button>
       <div id="lp-result" class="list" style="margin-top:0.6rem;" aria-live="polite"></div>
     </form>
+    <form class="card" id="ext-form" onsubmit="event.preventDefault(); saveExtension();">
+      <h3>Deine KI-Extension</h3>
+      <p class="muted" style="margin-top:0;">Erstelle deine eigene Erweiterung der TGRAM KI. Sie antwortet dir im Bot (@toncoing_bot) und im TC mit deiner Persona.</p>
+      <input id="ext-name" required minlength="2" maxlength="40" placeholder="Name deiner KI (z. B. GameMaster)" aria-label="Name der KI-Extension" style="margin-bottom:0.5rem;" />
+      <textarea id="ext-persona" required minlength="10" maxlength="1200" rows="4" placeholder="Persona: Wofür ist deine KI da, wie soll sie antworten?" aria-label="Persona der KI-Extension" style="width:100%; padding:0.8rem; border-radius:8px; border:1px solid var(--border); background:#0b111e; color:var(--text); font-family:monospace; margin-bottom:0.5rem;"></textarea>
+      <button class="btn" type="submit">KI-Extension speichern</button>
+      <div id="ext-result" class="muted" style="margin-top:0.6rem;" aria-live="polite"></div>
+    </form>
     <div class="card">
       <h3>Extention Contracts</h3>
       <p class="muted">Jetton-Standard aus dem Repo <strong>TON-Coin</strong> (JettonMinter / JettonWallet in Tolk, Gas-Benchmarks und Tests).</p>
@@ -336,6 +344,23 @@
         <div class="list-row"><span>github.ton: Wallet-Core, PRAIAI</span><a href="https://rfof-network.github.io/rfof-network.github.ton/" target="_blank" rel="noopener noreferrer">Seite</a></div>
       </div>
     </div>
+    </div>
+  </section>
+
+  <!-- ================= BROWSER ================= -->
+  <section id="view-browser" data-view class="hidden" aria-label="Browser">
+    <form class="card" onsubmit="event.preventDefault(); browseTo(document.getElementById('browser-url').value);">
+      <h3>Browser</h3>
+      <div class="input-group">
+        <input id="browser-url" type="text" inputmode="url" autocomplete="off" placeholder="Adresse oder Suche (z. B. tonviewer.com)" aria-label="Adresse oder Suchbegriff" />
+        <button class="btn" type="submit" style="max-width:7rem; margin:0;">Öffnen</button>
+      </div>
+      <div class="list" id="browser-quick" style="margin-top:0.6rem;" aria-label="Schnellzugriff"></div>
+    </form>
+    <div class="card embed hidden" id="browser-pane">
+      <div class="embed-bar"><span id="browser-current" class="addr" style="margin:0;"></span><a id="browser-external" target="_blank" rel="noopener noreferrer">Extern öffnen</a></div>
+      <iframe id="browser-frame" title="Browser" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"></iframe>
+      <p class="muted" style="margin:0.5rem 0 0;">Bleibt die Seite leer, verbietet sie die Einbettung. Dann &quot;Extern öffnen&quot; nutzen.</p>
     </div>
   </section>
 
@@ -538,6 +563,7 @@
     <button type="button" data-nav="tc" onclick="showTab('tc')" aria-label="TC TGRAM Copilot"><svg class="icon"><use href="#i-bot"/></svg>TC</button>
     <button type="button" data-nav="launchpad" onclick="showTab('launchpad')"><svg class="icon"><use href="#i-rocket"/></svg>TLPFG</button>
     <button type="button" data-nav="staking" onclick="showTab('staking')"><svg class="icon"><use href="#i-coins"/></svg>Mining</button>
+    <button type="button" data-nav="browser" onclick="showTab('browser')"><svg class="icon"><use href="#i-globe"/></svg>Browser</button>
     <button type="button" data-nav="docs" onclick="showTab('docs')"><svg class="icon"><use href="#i-book"/></svg>Docs</button>
   </nav>
 
@@ -598,7 +624,70 @@
     const short = a => a ? a.slice(0, 6) + "..." + a.slice(-4) : "";
 
     // --- V4.1 Navigation ---
-    const VIEWS = ['home', 'dex', 'tc', 'launchpad', 'staking', 'docs', 'verlauf', 'profil', 'stars'];
+    const VIEWS = ['home', 'dex', 'tc', 'launchpad', 'staking', 'browser', 'docs', 'verlauf', 'profil', 'stars'];
+    const EXT_API = TGRAM_API.replace(/\/copilot$/, '/extension');
+    const BROWSER_QUICK = [
+      ['Tonviewer', 'https://tonviewer.com'],
+      ['STON.fi', 'https://app.ston.fi'],
+      ['TON-Coin dApp', 'https://rfof-network.github.io/TON-Coin/'],
+      ['github.ton', 'https://rfof-network.github.io/rfof-network.github.ton/'],
+      ['TON Docs', 'https://docs.ton.org'],
+    ];
+
+    function normalizeUrl(input) {
+      const v = String(input || '').trim();
+      if (!v) return null;
+      if (/^https?:\/\//i.test(v)) return v;
+      if (/^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(v)) return 'https://' + v;
+      return 'https://duckduckgo.com/?q=' + encodeURIComponent(v);
+    }
+    function browseTo(input) {
+      const url = normalizeUrl(input);
+      if (!url) return;
+      let parsed;
+      try { parsed = new URL(url); } catch { return; }
+      if (!/^https?:$/.test(parsed.protocol)) return;
+      document.getElementById('browser-url').value = parsed.href;
+      document.getElementById('browser-current').textContent = parsed.host;
+      document.getElementById('browser-external').href = parsed.href;
+      document.getElementById('browser-frame').src = parsed.href;
+      document.getElementById('browser-pane').classList.remove('hidden');
+    }
+    function renderBrowser() {
+      const box = document.getElementById('browser-quick');
+      if (box.childElementCount) return;
+      box.innerHTML = BROWSER_QUICK.map(([n, u]) => `<div class="list-row"><span>${esc(n)}</span><button class="tab-btn" type="button" data-url="${esc(u)}">Öffnen</button></div>`).join('');
+      box.addEventListener('click', e => { const b = e.target.closest('[data-url]'); if (b) browseTo(b.dataset.url); });
+    }
+
+    async function extensionCall(payload) {
+      const initData = window.Telegram?.WebApp?.initData || '';
+      if (!initData) throw new Error('Nur in Telegram verfügbar: öffne die Mini App über @toncoing_bot.');
+      const r = await fetch(EXT_API, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ initData, ...payload }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error === 'name_and_persona_required' ? 'Name (min. 2) und Persona (min. 10 Zeichen) nötig.' : 'Fehler: ' + (d.error || r.status));
+      return d.extension;
+    }
+    async function loadExtension() {
+      const out = document.getElementById('ext-result');
+      if (!window.Telegram?.WebApp?.initData) { out.textContent = 'Öffne die Mini App in Telegram, um deine KI-Extension zu speichern.'; return; }
+      try {
+        const ext = await extensionCall({ action: 'get' });
+        if (ext) {
+          document.getElementById('ext-name').value = ext.name;
+          document.getElementById('ext-persona').value = ext.persona;
+          out.textContent = 'Aktiv: ' + ext.name;
+        }
+      } catch (e) { out.textContent = e.message; }
+    }
+    async function saveExtension() {
+      const out = document.getElementById('ext-result');
+      out.textContent = 'Speichere...';
+      try {
+        const ext = await extensionCall({ action: 'save', name: document.getElementById('ext-name').value, persona: document.getElementById('ext-persona').value });
+        out.textContent = 'Gespeichert. Deine KI "' + ext.name + '" antwortet jetzt im Bot.';
+      } catch (e) { out.textContent = e.message; }
+    }
     let txCache = [];
     let tradeFilter = 'ALL';
     let chartPair = 'TON';
@@ -642,7 +731,8 @@
       if (name === 'tc') { initCopilot(); setTimeout(() => document.getElementById('chat-input').focus(), 50); }
       if (name === 'docs') { renderPlan(); runGuardian(); }
       if (name === 'stars') loadStars();
-      if (name === 'launchpad') { renderMajor(); if (userAddress && !txCache.length) loadHistory().then(renderMajor); }
+      if (name === 'browser') renderBrowser();
+      if (name === 'launchpad') { loadExtension(); renderMajor(); if (userAddress && !txCache.length) loadHistory().then(renderMajor); }
       window.scrollTo(0, 0);
     }
 

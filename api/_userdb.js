@@ -125,4 +125,14 @@ async function adminStats() {
   };
 }
 
-module.exports = { touchUser, logEvent, settleStars, setData, getData, myOverview, deleteMe, isAdmin, adminStats, KEY_RE };
+async function adminId() {
+  const [u] = await rest("tg_users?role=eq.admin&select=tg_id&order=created_at&limit=1");
+  return u?.tg_id || null;
+}
+
+async function saveAutopilotReport(report) {
+  const id = await adminId();
+  if (id) await setData(id, "autopilot_report", JSON.stringify(report));
+}
+
+module.exports = { touchUser, logEvent, settleStars, setData, getData, myOverview, deleteMe, isAdmin, adminStats, adminId, saveAutopilotReport, KEY_RE };

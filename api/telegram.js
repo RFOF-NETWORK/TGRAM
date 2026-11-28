@@ -4,6 +4,8 @@ const { PRICING, balance, charge, paymentLink, askAI, VAULT, ledger, explorerLin
 const { signAIReply } = require("./_botwallet");
 const { AXF_PER_STAR, isAxfPayload, axfClaims, axfInvoice } = require("./_axf");
 const userdb = require("./_userdb");
+const cells = require("./_cells");
+const { getExtension } = require("./extension");
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || "";
@@ -223,6 +225,7 @@ async function handle(msg) {
         "/balance - Credits anzeigen",
         "/buy - Value-Support: TON/NEC/BBC/AXF an den Vault",
         "/price - Gebuehren & Preise",
+        "/kosten <text> - Rechnung Cell -> TON -> Gram -> AXF -> Stars",
         "/stars <n> - Credits mit Telegram Stars kaufen (1 Star = 1 Credit)",
         `/axf <n> - AXF mit Stars kaufen (1 Star = ${AXF_PER_STAR} AXF), /axf zeigt deinen AXF-Stand`,
         "/cmd add|remove|list - eigene Sub-Befehle (nur nach Erlauben)",
@@ -244,8 +247,13 @@ async function handle(msg) {
     return reply(
       chatId,
       `KI: ${PRICING.cost.ai} Credits | Befehl: ${PRICING.cost.command} | Game: ${PRICING.cost.game}\n` +
-        `DEX-Handelsgebuehr: ${PRICING.dexFeePercent} %\n1 TON = ${PRICING.creditsPerTon} Credits`,
+        `DEX-Handelsgebuehr: ${PRICING.dexFeePercent} %\n1 TON = ${PRICING.creditsPerTon} Credits\n\n` +
+        `KI-Punkte pro Nachricht (Beispiel 100 Zeichen):\n${cells.formatChain(cells.chain("x".repeat(100)))}`,
     );
+  }
+  if (cmd === "/kosten") {
+    if (!arg) return reply(chatId, "Nutzung: /kosten <text>");
+    return reply(chatId, cells.formatChain(cells.chain(arg)));
   }
   if (cmd === "/game") {
     const c = await charge(uid, "game");
@@ -262,9 +270,13 @@ async function handle(msg) {
   const c = await charge(uid, "ai");
   if (!c.ok) return needCredits(chatId, uid, c);
   await tg("sendChatAction", { chat_id: chatId, action: "typing" });
-  const [answer, proof] = await Promise.all([askAI(question), signAIReply(uid)]);
+  const extension = await getExtension(uid).catch(() => null);
+  const [answer, proof] = await Promise.all([askAI(question, extension), signAIReply(uid)]);
   const reward = rewardAI(uid);
-  userdb.logEvent(uid, "ai", { chars: question.length + String(answer).length, points: reward.earned }).catch(e => console.error("userdb log", e.message));
+  const cost = cells.chain(question + String(answer));
+  userdb
+    .logEvent(uid, "ai", { chars: cost.chars, points: cost.stars, meta: { cells: cost.cells, gram: cost.gram, axf: cost.axf } })
+    .catch(e => console.error("userdb log", e.message));
   return sendReply(chatId, c.free ? answer : `${answer}\n\n(-${c.cost} Credits, Rest ${c.available})`, {}, uid, reward, proof);
 }
 
