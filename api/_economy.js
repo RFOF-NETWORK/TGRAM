@@ -2,7 +2,11 @@
 // Credits are derived from on-chain payments to the TGRAM vault whose comment is
 // "TGRAM:<telegram-id or wallet>". AI and commands are free; paid credits are value support.
 
-const VAULT = process.env.TON_MULTISIG_VAULT || "";
+const OWNER_ADDRESS = "UQDk-1Gqc4YIC22LTAAZLxomhkyp-V52B0yaeHgmk3t9Lli6";
+// UQAHf2mw... was set as vault but does not belong to the owner; never route payments there.
+const FOREIGN_ADDRESSES = new Set(["UQAHf2mwKFjEprwz5fBS5k5brROrldthRCz-CVi5eVm95EuN"]);
+const envVault = (process.env.TON_MULTISIG_VAULT || "").trim();
+const VAULT = envVault && !FOREIGN_ADDRESSES.has(envVault) ? envVault : OWNER_ADDRESS;
 const TONCENTER = "https://toncenter.com/api/v3";
 
 const PRICING = {

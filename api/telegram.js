@@ -17,8 +17,8 @@ async function tg(method, body) {
 const MAX_TEXT = 3600;
 const fmt = (n) => (n == null ? "-" : Number(n.toFixed(6)).toString());
 
-// Every bot message ends with the user's latest on-chain transaction (or the bot vault)
-// on Tonviewer and Tonscan, so costs and the bot-paid AI stay verifiable.
+// Every bot message links the user's latest real on-chain transaction on Tonviewer and
+// Tonscan, so costs and the bot-paid AI stay verifiable. No account-level fallback links.
 async function txFooter(subject) {
   let latest = null;
   try { latest = (await ledger(String(subject))).txs[0] || null; } catch {}
@@ -31,11 +31,7 @@ async function txFooter(subject) {
       row: links ? [{ text: "Tonviewer", url: links.tonviewer }, { text: "Tonscan", url: links.tonscan }] : [],
     };
   }
-  const vault = accountLinks(VAULT);
-  return {
-    text: `\n\n— KI-Kosten: ${aiCost}. Alle Bot-Transaktionen im Vault:`,
-    row: vault ? [{ text: "Vault auf Tonviewer", url: vault.tonviewer }, { text: "Vault auf Tonscan", url: vault.tonscan }] : [],
-  };
+  return { text: `\n\n— KI-Kosten: ${aiCost}`, row: [] };
 }
 
 const reply = (chat_id, text, extra = {}) => sendReply(chat_id, text, extra);

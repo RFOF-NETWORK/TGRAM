@@ -160,7 +160,7 @@
 
     <div class="card">
       <h3>Meine Token</h3>
-      <div class="list" id="home-tokens"><p class="muted">Wallet verbinden, um TON, NEC, BBC und AXF zu sehen.</p></div>
+      <div class="list" id="home-tokens"><p class="muted">Wallet verbinden, um alle eigenen Token, LP-Paare und Fremd-Token zu sehen.</p></div>
       <p class="muted" style="margin-bottom:0;">Jetton-Gebühren (NEC/BBC/AXF) übernimmt <strong>@toncoing_bot</strong> als Freundschaftsbündnis mit seinen Usern.</p>
     </div>
 
@@ -447,7 +447,7 @@
     let tc = null;
     let network = 'mainnet';
     const TGRAM_API = "https://tgram-tau.vercel.app/api/copilot";
-    const TGRAM_VAULT = "UQAHf2mwKFjEprwz5fBS5k5brROrldthRCz-CVi5eVm95EuN";
+    const TGRAM_VAULT = "UQDk-1Gqc4YIC22LTAAZLxomhkyp-V52B0yaeHgmk3t9Lli6";
     const DEX_FEE = 0.01;
     const TONCENTER = { mainnet: "https://toncenter.com/api/v3", testnet: "https://testnet.toncenter.com/api/v3" };
     const creditSubject = () => tgUserId || userAddress;
@@ -490,12 +490,9 @@
     }
 
     function txFooterHtml(tx) {
-      if (!tx?.links) return '';
-      const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      if (tx?.kind !== 'tx' || !tx.links) return '';
       const num = n => n == null ? '-' : String(Number(Number(n).toFixed(6)));
-      const info = tx.kind === 'tx'
-        ? `Letzte Tx: ${num(tx.amount)} ${esc(tx.token)} · Netzgebühr ${num(tx.fee)} TON · KI-Kosten 0 (zahlt @toncoing_bot)`
-        : 'KI-Kosten 0 (zahlt @toncoing_bot) · Alle Bot-Transaktionen im Vault';
+      const info = `Letzte Tx: ${num(tx.amount)} ${esc(tx.token)} · Netzgebühr ${num(tx.fee)} TON · KI-Kosten 0 (zahlt @toncoing_bot)`;
       return `<div class="tx-foot">${info}<br><a href="${esc(tx.links.tonviewer)}" target="_blank" rel="noopener noreferrer">Tonviewer</a> · <a href="${esc(tx.links.tonscan)}" target="_blank" rel="noopener noreferrer">Tonscan</a></div>`;
     }
 
@@ -564,39 +561,66 @@
       } catch (e) {}
     }
 
-    const ECO_TOKENS = ['NEC', 'BBC', 'AXF'];
+    // Owner classification: verified (whitelist) jettons are third-party; LP tokens and
+    // unverified/flagged jettons are the owner's own, except the wrapped "dogs" scam.
+    const ECO_ALIASES = { NEC: ['NEC', 'gasNEC'], BBC: ['BBC'], AXF: ['AXF'] };
+    const TOKEN_GROUPS = [
+      ['own', 'Eigene Token (Verifizierung ausstehend)'],
+      ['lp', 'Eigene LP-Paare'],
+      ['verified', 'Verifiziert (Fremd-Token)'],
+      ['scam', 'Scam-markiert'],
+    ];
+    const isLp = j => /\bLP\b/.test(j.symbol || '') || /^LP Token/i.test(j.name || '');
+    function classifyJetton(j) {
+      if (isLp(j)) return 'lp';
+      if (j.verification === 'whitelist') return 'verified';
+      if (j.verification === 'blacklist' && /^dogs wrapped$/i.test(j.name || '')) return 'scam';
+      return 'own';
+    }
+    const formatAmount = n => n >= 1e6 ? n.toLocaleString('de-DE', { maximumFractionDigits: 0 }) : n.toLocaleString('de-DE', { maximumFractionDigits: 4 });
+    const ecoJetton = s => ECO_ALIASES[s].map(a => jettons[a]).find(Boolean);
 
     async function loadJettons() {
       if (!userAddress) return;
-      const base = TONCENTER[network];
+      const api = network === 'testnet' ? 'https://testnet.tonapi.io' : 'https://tonapi.io';
       const jl = document.getElementById("jetton-list");
-      jl.innerHTML = '<p class="muted">Lade aus der Blockchain...</p>';
+      jl.innerHTML = document.getElementById("home-tokens").innerHTML = '<p class="muted">Lade aus der Blockchain...</p>';
       Object.keys(jettons).forEach(k => delete jettons[k]);
       try {
-        const j = await (await fetch(base + "/jetton/wallets?owner_address=" + encodeURIComponent(userAddress) + "&limit=50")).json();
-        const meta = j.metadata || {};
-        const rows = (j.jetton_wallets || []).filter(w => w.balance !== "0").map(w => {
-          const info = (meta[w.jetton] && meta[w.jetton].token_info && meta[w.jetton].token_info[0]) || {};
-          const decimals = Number(info.extra && info.extra.decimals || 9);
-          const balance = Number(w.balance) / 10 ** decimals;
-          const sym = (info.symbol || short(w.jetton)).toUpperCase();
-          if (!jettons[sym]) jettons[sym] = { wallet: w.address, master: w.jetton, decimals, balance };
-          return `<div class="list-row"><span>${esc(sym)}${/LP|STON/i.test(info.name || "") ? " (LP)" : ""}</span><span>${esc(balance.toFixed(4))}</span></div>`;
+        const d = await (await fetch(`${api}/v2/accounts/${encodeURIComponent(userAddress)}/jettons`)).json();
+        (d.balances || []).forEach(b => {
+          const j = b.jetton || {};
+          const decimals = Number(j.decimals ?? 9);
+          const balance = Number(BigInt(b.balance || '0') * 10000n / 10n ** BigInt(decimals)) / 10000;
+          let sym = j.symbol || short(j.address);
+          if (jettons[sym]) sym = `${sym}·${String(j.address).slice(-4)}`;
+          jettons[sym] = { wallet: b.wallet_address?.address, master: j.address, decimals, balance, name: j.name || sym, group: classifyJetton(j) };
         });
+        const rows = Object.entries(jettons).filter(([, t]) => t.balance > 0).map(([s, t]) =>
+          `<div class="list-row"><span>${esc(s)}${t.group === 'lp' ? ' (LP)' : ''}</span><span>${esc(formatAmount(t.balance))}</span></div>`);
         jl.innerHTML = rows.join("") || '<p class="muted">Keine Jettons oder LP-Token in dieser Wallet.</p>';
       } catch (e) { jl.innerHTML = '<p class="warn">Jettons konnten nicht geladen werden.</p>'; }
       renderTokens();
     }
 
     function renderTokens() {
-      const bal = s => jettons[s] ? jettons[s].balance.toFixed(4) : "0.0000";
+      const bal = s => { const t = ecoJetton(s); return t ? formatAmount(t.balance) : "0"; };
       document.getElementById("stake-bal").textContent = bal("NEC");
       document.getElementById("vault-bal").textContent = bal("AXF");
+      const explorer = m => `https://tonviewer.com/${encodeURIComponent(m)}`;
+      const row = (s, t) => `<div class="list-row"><span>${esc(s)} <span class="muted">${esc(t.name)}</span></span><span><a href="${explorer(t.master)}" target="_blank" rel="noopener noreferrer" style="color:var(--primary)">${esc(formatAmount(t.balance))}</a></span></div>`;
+      const eco = Object.keys(ECO_ALIASES).map(s => {
+        const t = ecoJetton(s);
+        return `<div class="list-row"><span><strong>${s}</strong>${t ? '' : ' <span class="muted">(noch nicht geminted)</span>'}</span><span>${bal(s)}</span></div>`;
+      }).join("");
+      const groups = TOKEN_GROUPS.map(([key, label]) => {
+        const list = Object.entries(jettons).filter(([, t]) => t.group === key);
+        return list.length ? `<p class="muted" style="margin:0.6rem 0 0.2rem;">${label} · ${list.length}</p>` + list.map(([s, t]) => row(s, t)).join("") : '';
+      }).join("");
       document.getElementById("home-tokens").innerHTML =
-        `<div class="list-row"><span>TON</span><span>${esc(document.getElementById("stake-ton").textContent)}</span></div>` +
-        ECO_TOKENS.map(s => `<div class="list-row"><span>${s}${jettons[s] ? "" : ' <span class="muted">(nicht in Wallet)</span>'}</span><span>${bal(s)}</span></div>`).join("");
+        `<div class="list-row"><span><strong>TON</strong></span><span>${esc(document.getElementById("stake-ton").textContent)}</span></div>` + eco + groups;
       const sel = document.getElementById("send-token");
-      sel.innerHTML = '<option value="TON">TON</option>' + Object.keys(jettons).map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join("");
+      sel.innerHTML = '<option value="TON">TON</option>' + Object.keys(jettons).filter(s => jettons[s].balance > 0).map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join("");
       updateDexFee();
     }
 

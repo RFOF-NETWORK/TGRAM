@@ -2,12 +2,11 @@
 // POST { subject: "<telegram-id or wallet>", prompt: "...", kind?: "ai"|"command"|"game" }
 const { PRICING, balance, charge, paymentLink, askAI, VAULT, ledger, explorerLinks, accountLinks } = require("./_economy");
 
-// Latest on-chain transaction of the subject (or the bot vault) for the explorer footer.
+// Latest real on-chain transaction of the subject for the explorer footer.
 async function txInfo(subject) {
   let latest = null;
   try { latest = (await ledger(subject)).txs[0] || null; } catch {}
-  if (latest) return { kind: "tx", ...latest, links: explorerLinks(latest.hash) };
-  return { kind: "vault", address: VAULT, links: accountLinks(VAULT) };
+  return latest ? { kind: "tx", ...latest, links: explorerLinks(latest.hash) } : null;
 }
 
 const ALLOWED_ORIGINS = ["https://rfof-network.github.io", "https://tgram-tau.vercel.app"];

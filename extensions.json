@@ -3,7 +3,7 @@
   "last_updated": "2026-11-27T12:00:00Z",
   "extensions": {
     "vaults": [
-      { "id": "vault_main", "address": "UQAHf2mwKFjEprwz5fBS5k5brROrldthRCz-CVi5eVm95EuN", "type": "multisig", "status": "active" },
+      { "id": "vault_main", "address": "UQDk-1Gqc4YIC22LTAAZLxomhkyp-V52B0yaeHgmk3t9Lli6", "type": "multisig", "status": "active" },
       { "id": "vault_agent_01", "address": "UQ_new_agent_vault_placeholder", "type": "perpetual_futures", "status": "pending" }
     ],
     "ai_agents": [

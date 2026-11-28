@@ -52,7 +52,7 @@
     "vaults": [
       {
         "id": "vault_main",
-        "address": "UQAHf2mwKFjEprwz5fBS5k5brROrldthRCz-CVi5eVm95EuN",
+        "address": "UQDk-1Gqc4YIC22LTAAZLxomhkyp-V52B0yaeHgmk3t9Lli6",
         "type": "multisig",
         "status": "active",
         "balance_ton": 42.9699669,
