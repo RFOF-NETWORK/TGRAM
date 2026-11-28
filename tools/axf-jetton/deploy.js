@@ -12,17 +12,33 @@ const { sha256_sync, mnemonicToPrivateKey } = require("@ton/crypto");
 const ADMIN = "0:e4fb51aa7386080b6d8b4c00192f1a26864ca9f95e76074c9a787826937b7d2e"; // satoramy-on.ton
 const DEPLOY_VALUE = 50_000_000n; // 0.05 TON stays on the minter for storage fees
 
-const META = {
-  name: "ABillity XP FPS",
-  symbol: "AXF",
+const IMAGE = "https://ton.org/download/ton_symbol.png";
+const single = (name, symbol) => ({
+  name,
+  symbol,
   decimals: "9",
-  description: "AXF - ABillity XP FPS. TEP-74 Jetton im TGRAM-Netzwerk (RFOF-NETWORK). Startmenge 0; Menge entsteht nur durch Mints des Admins.",
-  image: "https://ton.org/download/ton_symbol.png",
+  description: `${symbol} - ${name}. Einzelwaehrung von AXF (ABillity XP FPS) im TGRAM-Netzwerk (RFOF-NETWORK). Startmenge 0; Menge entsteht nur durch Mints des Admins.`,
+  image: IMAGE,
+});
+// AXF metadata must stay byte-identical: it determines the already deployed minter address.
+const TOKENS = {
+  AXF: {
+    name: "ABillity XP FPS",
+    symbol: "AXF",
+    decimals: "9",
+    description: "AXF - ABillity XP FPS. TEP-74 Jetton im TGRAM-Netzwerk (RFOF-NETWORK). Startmenge 0; Menge entsteht nur durch Mints des Admins.",
+    image: IMAGE,
+  },
+  ABILLITY: single("ABillity", "ABILLITY"),
+  XP: single("XP", "XP"),
+  FPS: single("FPS", "FPS"),
 };
 
 const root = process.argv[2];
 const send = process.argv.includes("--send");
-if (!root) { console.error("usage: node deploy.js <token-contract-dir> [--send]"); process.exit(1); }
+const tokenArg = (process.argv.find((a) => a.startsWith("--token=")) || "--token=AXF").slice(8).toUpperCase();
+const META = TOKENS[tokenArg];
+if (!root || !META) { console.error("usage: node deploy.js <token-contract-dir> [--token=AXF|ABILLITY|XP|FPS] [--send]"); process.exit(1); }
 
 const read = (p) => fs.readFileSync(path.join(root, p), "utf8");
 const sources = {
