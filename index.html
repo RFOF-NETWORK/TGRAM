@@ -46,7 +46,12 @@
 
   <script>
     (function mountTelegramLogin() {
-      const TG_USERNAME = 'Satoramy';
+      // Telegram Login requires a @BotFather bot username (not a personal account).
+      const TG_USERNAME = '';
+      if (!TG_USERNAME) {
+        document.getElementById('tg-login-widget').innerHTML = '<p style="color:#fbbf24; font-size:0.85rem; margin:0;">Login-Widget inaktiv: Bot-Benutzername aus @BotFather fehlt. Chat- und Mini-App-Link funktionieren bereits.</p>';
+        return;
+      }
       const basePath = window.location.pathname.replace(/[^/]*$/, '');
       const widget = document.createElement('script');
       widget.async = true;
