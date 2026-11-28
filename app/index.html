@@ -745,7 +745,14 @@
       if (box.childElementCount) return;
       box.innerHTML = BROWSER_QUICK.map(([group, items]) =>
         `<h4 class="muted" style="margin:0.8rem 0 0.3rem; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em;">${esc(group)}</h4>` +
-        items.map(([n, u, why]) => `<div class="list-row"><span><strong>${esc(n)}</strong><br><span class="muted" style="font-size:0.85rem;">${esc(why)}</span></span><button class="tab-btn" type="button" style="flex:none; width:auto; padding:0.4rem 0.9rem;" data-url="${esc(u)}" aria-label="${esc(n)} öffnen">Öffnen</button></div>`).join('')
+        items.map(([n, u, why]) => {
+          let host = '';
+          try { host = new URL(u).hostname; } catch {}
+          host = ({ 'app.storm.trade': 'storm.tg', 'app.tonstakers.com': 'tonstakers.com' })[host] || host;
+          const initial = esc(n.charAt(0).toUpperCase());
+          const logo = `<span aria-hidden="true" style="flex:none; position:relative; width:36px; height:36px; border-radius:10px; overflow:hidden; background:var(--surface-2, #1e293b); display:flex; align-items:center; justify-content:center; font-weight:700;">${initial}<img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64" data-alt-src="https://icon.horse/icon/${encodeURIComponent(host)}" onload="if(this.naturalWidth<=16&&this.dataset.altSrc){const a=this.dataset.altSrc;delete this.dataset.altSrc;this.src=a;}" alt="" width="36" height="36" loading="lazy" referrerpolicy="no-referrer" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; background:inherit;" onerror="this.remove()"></span>`;
+          return `<div class="list-row" style="gap:0.75rem;">${logo}<span style="flex:1; min-width:0;"><strong>${esc(n)}</strong><br><span class="muted" style="font-size:0.85rem;">${esc(why)}</span></span><button class="tab-btn" type="button" style="flex:none; width:auto; padding:0.4rem 0.9rem;" data-url="${esc(u)}" aria-label="${esc(n)} öffnen">Öffnen</button></div>`;
+        }).join('')
       ).join('');
       box.addEventListener('click', e => { const b = e.target.closest('[data-url]'); if (b) browseTo(b.dataset.url); });
     }
