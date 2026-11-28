@@ -3,7 +3,9 @@
 const crypto = require("crypto");
 const userdb = require("./_userdb");
 
-const CLIENT_ID = process.env.GITHUB_CLIENT_ID || "";
+const CLIENT_ID = [process.env.GITHUB_APP_CLIENT_ID, process.env.GITHUB_CLIENT_ID]
+  .map((v) => String(v || "").trim())
+  .find((v) => /^(Iv1\.|Iv23|Ov23)[A-Za-z0-9]+$/.test(v)) || "";
 const SECRET = process.env.TGRAM_GITHUB_ENC_KEY || process.env.SUPABASE_JWT_SECRET || process.env.TELEGRAM_WEBHOOK_SECRET || "";
 const TOKEN_KEY = "_github";
 const PENDING_KEY = "_github_pending";
