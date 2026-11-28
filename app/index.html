@@ -346,8 +346,13 @@
   <section id="view-tc" data-view class="hidden" aria-label="TGRAM Copilot">
     <div class="switch" role="group" aria-label="Copilot Ansicht" style="margin-bottom:1rem;">
       <button type="button" data-pane-btn="tc:chat" aria-pressed="true" onclick="setPane('tc','chat')">Copilot</button>
-      <button type="button" data-pane-btn="tc:praiai" aria-pressed="false" onclick="setPane('tc','praiai')">PRAIAI · github.ton</button>
-    </div>
+<button type="button" data-pane-btn="tc:praiai" aria-pressed="false" onclick="setPane('tc','praiai')">PRAIAI · github.ton</button>
+  <button type="button" data-pane-btn="tc:verifier" aria-pressed="false" onclick="setPane('tc','verifier')">TON Verifier</button>
+  </div>
+  <div class="card embed hidden" data-pane="tc:verifier">
+  <div class="embed-bar"><span>verifier.ton.org · Contract-Quellcode verifizieren</span><a href="https://verifier.ton.org/" target="_blank" rel="noopener noreferrer">Extern öffnen</a></div>
+  <iframe title="TON Contract Verifier" data-src="https://verifier.ton.org/" loading="lazy" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"></iframe>
+  </div>
     <div class="card embed hidden" data-pane="tc:praiai">
       <div class="embed-bar"><span>RFOF-NETWORK/rfof-network.github.ton</span><a href="https://rfof-network.github.io/rfof-network.github.ton/" target="_blank" rel="noopener noreferrer">Extern öffnen</a></div>
       <iframe title="PRAIAI rfof-network.github.ton" data-src="https://rfof-network.github.io/rfof-network.github.ton/" loading="lazy" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"></iframe>

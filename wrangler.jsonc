@@ -1,0 +1,11 @@
+{
+  "$schema": "https://unpkg.com/wrangler/config-schema.json",
+  "name": "tgram",
+  "main": "worker.js",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./app",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*", "/verifier", "/verifier/*", "/health"]
+  }
+}
