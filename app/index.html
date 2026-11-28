@@ -433,9 +433,26 @@
       <div id="mts-list"><p class="muted">Lade …</p></div>
     </div>
     <div class="card">
+      <h3>Nachrichtenkosten · Zeichen zu TON</h3>
+      <p class="muted">Jede KI-Antwort, die die Bot-Wallet on-chain signiert, kostet eine TON-Weiterleitungsgebühr, berechnet aus Bytes und Zellen des Textes. Gleiche Formel für User und Entwickler.</p>
+      <label for="fee-text" class="sr-only">Nachrichtentext</label>
+      <textarea id="fee-text" rows="3" placeholder="Nachricht eingeben..." oninput="updateMsgFee()" style="width:100%;margin-top:0.5rem"></textarea>
+      <div class="token-balance"><span>Zeichen / Bytes (UTF-8)</span><span id="fee-chars">0 / 0</span></div>
+      <div class="token-balance"><span>Bits / Zellen</span><span id="fee-cells">32 / 1</span></div>
+      <div class="token-balance"><span>Weiterleitungsgebühr</span><span id="fee-fwd">–</span></div>
+      <div class="token-balance"><span>Gesamt inkl. Wallet-Gas (ca.)</span><span id="fee-total">–</span></div>
+      <p class="muted" style="font-size:0.85rem">Formel: lump + ⌈(bit_price·bits + cell_price·cells) / 2¹⁶⌉. Live-Werte aus TON-Config-Parameter 25 (Basechain, gelesen am 28.11.2026): lump 66 667, bit_price 4 369 067, cell_price 436 906 667 nanoTON. Das Gas für die Wallet-Ausführung ist ein Schätzwert.</p>
+    </div>
+    <div class="card">
       <h3>Woher kommen die Stars?</h3>
-      <p class="muted">Stars sind die Telegram-Währung (XTR) für digitale Güter in Bots. Über XTR-Rechnungen bezahlte Stars landen im Saldo des Bots. KI-Interaktionen zählen derzeit nur als vorübergehende interne Punkte, nicht als Telegram Stars.</p>
-      <a class="chip" href="https://core.telegram.org/bots/payments-stars" target="_blank" rel="noopener noreferrer">Telegram Stars Dokumentation</a>
+      <p class="muted"><strong>Telegram Stars (XTR)</strong> gibt es nur über Telegram: als Bezahlung über XTR-Rechnungen oder als Provision aus dem offiziellen Telegram-Affiliate-Programm, wenn eingeladene Freunde im Bot Stars ausgeben. Eine Wallet kann Stars nicht selbst erzeugen.</p>
+      <p class="muted"><strong>AXF für KI-Interaktion:</strong> Schreiben mit der KI bringt AXF in Umlauf. Gemintet wird das erst, wenn der AXF-Minter deployed ist (Supply startet bei 0). Andere Coins wie TON, MAJOR, NEC oder die übrigen über 600 Token der STON.fi-Liste kann nur ihr eigener Minter erzeugen. Hier werden sie gehandelt, nicht gemint.</p>
+      <p class="muted"><strong>Speicher:</strong> Jede Nachricht und jeder Nutzer belegt Speicher in Supabase und, bei On-Chain-Daten, TON-Speichergebühren. Der Speicher wächst mit der Nutzung und wird wie oben aus Gebühren bezahlt.</p>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+        <a class="chip" href="https://core.telegram.org/bots/payments-stars" target="_blank" rel="noopener noreferrer">Stars-Doku</a>
+        <a class="chip" href="https://telegram.org/tour/affiliate-programs" target="_blank" rel="noopener noreferrer">Affiliate-Programm</a>
+        <a class="chip" href="https://docs.ton.org/develop/smart-contracts/fees" target="_blank" rel="noopener noreferrer">TON-Gebühren</a>
+      </div>
     </div>
   </section>
 
@@ -588,7 +605,29 @@
     const jettons = {};
     const feeRate = sym => sym === 'TON' ? DEX_FEE : 0;
 
+    const TON_FWD = { lump: 66667n, bit: 4369067n, cell: 436906667n };
+    const WALLET_GAS_NANO = 2500000n;
+    function msgFeeNano(text) {
+      const bytes = new TextEncoder().encode(text).length;
+      const bits = 32 + 8 * bytes;
+      const cells = Math.max(1, Math.ceil((bytes + 4) / 127));
+      const raw = TON_FWD.bit * BigInt(bits) + TON_FWD.cell * BigInt(cells);
+      const fwd = TON_FWD.lump + (raw + 65535n) / 65536n;
+      return { bytes, bits, cells, fwd };
+    }
+    function updateMsgFee() {
+      const el = document.getElementById('fee-text');
+      if (!el) return;
+      const t = el.value;
+      const r = msgFeeNano(t);
+      const fmt = n => (Number(n) / 1e9).toFixed(9) + ' TON';
+      document.getElementById('fee-chars').textContent = [...t].length + ' / ' + r.bytes;
+      document.getElementById('fee-cells').textContent = r.bits + ' / ' + r.cells;
+      document.getElementById('fee-fwd').textContent = fmt(r.fwd);
+      document.getElementById('fee-total').textContent = '≈ ' + fmt(r.fwd + WALLET_GAS_NANO);
+    }
     function showTab(name) {
+      if (name === 'stars') setTimeout(updateMsgFee, 0);
       if (location.hash !== '#' + name) location.hash = name;
       else renderView(name);
     }
@@ -1242,7 +1281,8 @@
   { name: 'Bot-Wallet (TGRAM Copilot)', addr: 'UQBg9Q1kUBfe5pRgguB5M2XzCSxwaZ0nIXRcovleeh-QSv27' },
   { name: 'Owner-Wallet satoramy-on.ton', addr: 'UQDk-1Gqc4YIC22LTAAZLxomhkyp-V52B0yaeHgmk3t9Lli6' },
   { name: 'AXF Jetton-Minter (TEP-74)', addr: 'EQCwv00qHXTQecB8A7q0NCKSAHH7WHz_7aQCiPjPrQkc28X3' },
-  { name: 'Jetton (jetton-token.tolk)', src: 'blockchain-cloud/apiless-onchain/jetton-token.tolk' },
+  { name: 'AXF Jetton Minter (TEP-74)', src: 'blockchain-cloud/apiless-onchain/axf-jetton/JettonMinter.tolk' },
+  { name: 'AXF Jetton Wallet (TEP-74)', src: 'blockchain-cloud/apiless-onchain/axf-jetton/JettonWallet.tolk' },
   { name: 'DEX-Launchpad (dex-launchpad.tolk)', src: 'blockchain-cloud/apiless-onchain/dex-launchpad.tolk' },
   { name: 'Energy-Vault (energy-storage-vault.tolk)', src: 'blockchain-cloud/apiless-onchain/energy-storage-vault.tolk' },
   { name: 'TON-Coin Jetton Minter', repo: 'TON-Coin', src: 'contracts/JettonMinter.tolk' },

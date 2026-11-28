@@ -2,6 +2,8 @@
 // https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://tgram-tau.vercel.app/api/telegram&secret_token=<TELEGRAM_WEBHOOK_SECRET>
 const { PRICING, balance, charge, paymentLink, askAI, VAULT, ledger, explorerLinks, accountLinks, botLatestTx, rewardAI } = require("./_economy");
 const { signAIReply } = require("./_botwallet");
+const { AXF_PER_STAR, isAxfPayload, axfClaims, axfInvoice } = require("./_axf");
+const userdb = require("./_userdb");
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || "";
@@ -82,7 +84,11 @@ async function needCredits(chatId, uid, res) {
   );
 }
 
-const BUILTIN = ["start", "app", "help", "balance", "buy", "price", "game", "ask", "stars", "cmd"];
+const axfStatus = (c) =>
+  `Dein AXF: ${c.axf} (aus ${c.stars} Stars, ${c.payments} Kaeufe) · ` +
+  (c.onchain ? `on-chain ueber Minter ${c.minter}` : "reserviert, Lieferung nach AXF-Deploy");
+
+const BUILTIN = ["start", "app", "help", "balance", "buy", "price", "game", "ask", "stars", "axf", "cmd"];
 const NAME_RE = /^[a-z][a-z0-9_]{1,30}$/;
 
 // Per-chat sub-commands are stored by Telegram itself (setMyCommands, chat scope); the
@@ -120,13 +126,65 @@ async function handle(msg) {
   const uid = String(msg.from?.id || chatId);
   const reply = (id, text, extra = {}) => sendReply(id, text, extra, uid);
   if (msg.successful_payment) {
+    const p = msg.successful_payment;
+    if (isAxfPayload(p.invoice_payload, uid)) {
+      const c = await axfClaims(uid).catch(() => null);
+      return reply(chatId, `Danke! ${p.total_amount} Stars -> ${p.total_amount * AXF_PER_STAR} AXF.` + (c ? `\n${axfStatus(c)}` : ""));
+    }
     const b = await balance(uid);
-    return reply(chatId, `Danke! ${msg.successful_payment.total_amount} Stars erhalten. Credits: ${b.available}.`);
+    return reply(chatId, `Danke! ${p.total_amount} Stars erhalten. Credits: ${b.available}.`);
   }
   const text = (msg.text || "").trim();
   const [cmdRaw, ...rest] = text.split(" ");
   const cmd = cmdRaw.split("@")[0].toLowerCase();
   const arg = rest.join(" ").trim();
+  const me = msg.from ? await userdb.touchUser(msg.from).catch(e => (console.error("userdb", e.message), null)) : null;
+
+  if (cmd === "/meinedaten") {
+    const o = await userdb.myOverview(uid);
+    return reply(
+      chatId,
+      [
+        `Deine Datenbank (${o.role === "admin" ? "Admin" : "Nutzer"})`,
+        `KI-Punkte: ${o.points} (AXF-gedeckt, werden erst zu Stars, wenn AXF echte Stars gekauft hat)`,
+        `Echte Stars ausgezahlt: ${o.stars} | AXF: ${o.axf}`,
+        `Nachrichten: ${o.messages} | Zeichen: ${o.chars}`,
+        `Gespeicherte Eintraege: ${o.keys.length ? o.keys.join(", ") : "keine"}`,
+        "/speichern <name> <text> | /laden <name> | /loeschen",
+      ].join("\n"),
+    );
+  }
+  if (cmd === "/speichern") {
+    const [key, ...val] = arg.split(" ");
+    const k = (key || "").toLowerCase();
+    if (!userdb.KEY_RE.test(k) || !val.join(" ").trim()) return reply(chatId, "Nutzung: /speichern <name> <text> (name: a-z, 0-9, _ -)");
+    await userdb.setData(uid, k, val.join(" ").trim());
+    return reply(chatId, `Gespeichert in deiner Datenbank: ${k}`);
+  }
+  if (cmd === "/laden") {
+    const row = await userdb.getData(uid, arg.toLowerCase());
+    return reply(chatId, row ? `${arg}:\n${row.value.text}` : "Kein Eintrag mit diesem Namen.");
+  }
+  if (cmd === "/loeschen") {
+    if (arg !== "ja") return reply(chatId, "Loescht alle deine Daten unwiderruflich. Bestaetigen mit: /loeschen ja");
+    await userdb.deleteMe(uid);
+    return reply(chatId, "Deine Daten wurden geloescht.");
+  }
+  if (cmd === "/admin") {
+    if (me?.role !== "admin") return reply(chatId, "Nur fuer den Admin.");
+    const s = await userdb.adminStats();
+    return reply(
+      chatId,
+      `Admin-Uebersicht\nNutzer: ${s.users} (aktiv 24h: ${s.active24h})\nNachrichten: ${s.messages} | Zeichen: ${s.chars}\nKI-Punkte offen: ${s.points} | Echte Stars ausgezahlt: ${s.stars} | AXF gesamt: ${s.axf}`,
+    );
+  }
+
+  if (cmd === "/axf") {
+    const stars = parseInt(arg, 10);
+    if (stars > 0) return axfInvoice(chatId, uid, Math.min(10000, stars));
+    const c = await axfClaims(uid);
+    return reply(chatId, `${axfStatus(c)}\nKaufen: /axf <Stars>, z. B. /axf 50 (1 Star = ${AXF_PER_STAR} AXF).`);
+  }
 
   if (cmd === "/stars") {
     const amount = Math.min(10000, Math.max(1, parseInt(arg, 10) || 50));
@@ -166,7 +224,10 @@ async function handle(msg) {
         "/buy - Value-Support: TON/NEC/BBC/AXF an den Vault",
         "/price - Gebuehren & Preise",
         "/stars <n> - Credits mit Telegram Stars kaufen (1 Star = 1 Credit)",
+        `/axf <n> - AXF mit Stars kaufen (1 Star = ${AXF_PER_STAR} AXF), /axf zeigt deinen AXF-Stand`,
         "/cmd add|remove|list - eigene Sub-Befehle (nur nach Erlauben)",
+        "/meinedaten - deine eigene Datenbank ansehen",
+        "/speichern <name> <text>, /laden <name>, /loeschen - eigene Daten verwalten",
         `/game - Mini Game starten (${PRICING.cost.game ? PRICING.cost.game + " Credit" : "kostenlos"})`,
       ].join("\n"),
     );
@@ -203,6 +264,7 @@ async function handle(msg) {
   await tg("sendChatAction", { chat_id: chatId, action: "typing" });
   const [answer, proof] = await Promise.all([askAI(question), signAIReply(uid)]);
   const reward = rewardAI(uid);
+  userdb.logEvent(uid, "ai", { chars: question.length + String(answer).length, points: reward.earned }).catch(e => console.error("userdb log", e.message));
   return sendReply(chatId, c.free ? answer : `${answer}\n\n(-${c.cost} Credits, Rest ${c.available})`, {}, uid, reward, proof);
 }
 
@@ -214,7 +276,7 @@ module.exports = async (req, res) => {
     const update = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
     if (update?.pre_checkout_query) {
       const q = update.pre_checkout_query;
-      await tg("answerPreCheckoutQuery", { pre_checkout_query_id: q.id, ok: q.currency === "XTR" && q.invoice_payload === `TGRAM:${q.from.id}` });
+      await tg("answerPreCheckoutQuery", { pre_checkout_query_id: q.id, ok: q.currency === "XTR" && (q.invoice_payload === `TGRAM:${q.from.id}` || isAxfPayload(q.invoice_payload, q.from.id)) });
     } else if (update?.callback_query) {
       await handleCallback(update.callback_query);
     } else {

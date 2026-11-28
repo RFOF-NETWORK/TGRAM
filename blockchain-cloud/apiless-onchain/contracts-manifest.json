@@ -3,7 +3,19 @@
   "blockchain": "TON",
   "tokens": ["TON", "NEC", "BBC"],
   "contracts": {
-    "token": { "standard": "TEP-74 Jetton", "compiler": "acton / tolk" },
+    "token": {
+      "name": "AXF",
+      "standard": "TEP-74 Jetton",
+      "compiler": "tolk 1.4.0",
+      "source": "axf-jetton/ (ton-blockchain/tolk-bench 01_jetton, MIT)",
+      "initialSupply": "0",
+      "mintAuthority": "bot-wallet (admin)",
+      "codeHash": {
+        "JettonMinter": "87460BE75A3674A981595F2681F3E58550EA422A2CF36DDF5279DF522121BFEB",
+        "JettonWallet": "915B573DF6F3BA0E76AD149D5340211CE9A961AD3DE5ECBD2CCBB2585E53872D"
+      },
+      "status": "compiled, not deployed"
+    },
     "dex": { "type": "AMM Liquidity Pool", "settlement": "on-chain-boc" },
     "launchpad": { "type": "Fairlaunch & Vesting Contract", "settlement": "on-chain-boc" },
     "energyVault": { "type": "Gasless c4 Cell + TON Storage Bag-ID Vault" },
