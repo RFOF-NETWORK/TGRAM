@@ -288,6 +288,22 @@ async function handle(msg) {
     );
   }
 
+  if (cmd === "/settings") {
+    if (me?.role !== "admin") return reply(chatId, "Nur fuer den Admin.");
+    const groups = {
+      "KI (AI Gateway)": ["VERCEL_OIDC_TOKEN", "AI_GATEWAY_API_KEY", "GEMINI_API_BASE", "GEMINI_ACTIVE_MODEL"],
+      Telegram: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_WEBHOOK_SECRET"],
+      "TON / Blockchain": ["BOT_WALLET_MNEMONIC", "TON_MULTISIG_VAULT", "TONCENTER_RPC_URL", "TONCONNECT_MANIFEST_URL", "TGRAM_SUPPORTED_TOKENS"],
+      "Datenbank (Supabase)": ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "POSTGRES_URL"],
+      GitHub: ["GITHUB_APP_CLIENT_ID", "GITHUB_TOKEN"],
+      "Login (Google/Microsoft)": ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"],
+    };
+    const lines = Object.entries(groups).map(([name, keys]) =>
+      `${name}\n` + keys.map((k) => `  ${process.env[k] ? "OK " : "-- "} ${k}`).join("\n"),
+    );
+    return reply(chatId, `Settings-Cluster (nur Status, keine Geheimwerte)\n\n${lines.join("\n\n")}\n\nWerte aendern: Vercel > Project > Settings > Environment Variables.`);
+  }
+
   if (["/github", "/repo", "/ls", "/cat", "/code"].includes(cmd)) {
     if (msg.chat.type !== "private") return reply(chatId, "GitHub-Befehle nur im privaten Chat mit dem Bot.");
     try {
@@ -410,6 +426,8 @@ async function handle(msg) {
 }
 
 module.exports = async (req, res) => {
+  const oidc = req.headers["x-vercel-oidc-token"];
+  if (oidc) process.env.VERCEL_OIDC_TOKEN = oidc;
   if (req.method !== "POST") return res.status(200).json({ ok: true, bot: "@toncoing_bot" });
   if (!TOKEN) return res.status(500).json({ ok: false, error: "TELEGRAM_BOT_TOKEN missing" });
   if (SECRET && req.headers["x-telegram-bot-api-secret-token"] !== SECRET) return res.status(401).end();
