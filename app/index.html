@@ -92,7 +92,9 @@
           <option value="TON">TON</option>
         </select>
       </div>
-      <input type="number" id="swap-amount" placeholder="Betrag eingeben..." />
+      <input type="number" id="swap-amount" placeholder="Betrag eingeben..." oninput="updateSwapFee()" />
+      <div class="token-balance"><span>Plattform-Gebühr (1 %):</span><span id="swap-fee">0.00</span></div>
+      <div class="token-balance"><span>Du erhältst (vor Kurs):</span><span id="swap-net">0.00</span></div>
       <button class="btn" onclick="executeSwap()">Token tauschen</button>
     </div>
 
@@ -121,6 +123,7 @@
 
   <div class="card">
     <h3>🤖 TGRAM Copilot</h3>
+    <div class="token-balance"><span>KI-Credits (2 pro Frage):</span><span id="ai-credits">verbinden...</span></div>
     <div id="chat-box"><div><strong>Copilot:</strong> Serverless Proxy aktiv. Frag mich nach TON, NEC, BBC oder AXF.</div></div>
     <div style="display:flex; gap:0.5rem;">
       <input id="chat-input" type="text" placeholder="Deine Frage..." style="flex:1;" />
@@ -130,6 +133,26 @@
 
   <script>
     let userAddress = null;
+    let tgUserId = null;
+    const TGRAM_API = "https://tgram-tau.vercel.app/api/copilot";
+    const DEX_FEE = 0.01;
+    const creditSubject = () => tgUserId || userAddress;
+
+    async function refreshCredits() {
+      const el = document.getElementById("ai-credits");
+      const s = creditSubject();
+      if (!s) { el.textContent = "verbinden..."; return; }
+      try {
+        const d = await (await fetch(TGRAM_API + "?subject=" + encodeURIComponent(s))).json();
+        el.innerHTML = d.pay ? `${d.available} <a href="${d.pay}" style="color:#38bdf8">aufladen</a>` : String(d.available);
+      } catch (e) { el.textContent = "offline"; }
+    }
+
+    function updateSwapFee() {
+      const amt = Number(document.getElementById('swap-amount').value) || 0;
+      document.getElementById('swap-fee').textContent = (amt * DEX_FEE).toFixed(4);
+      document.getElementById('swap-net').textContent = (amt * (1 - DEX_FEE)).toFixed(4);
+    }
 
     function loadScript(src) {
       return new Promise(r => {
@@ -167,6 +190,7 @@
       document.getElementById("dashboard").style.opacity = "1";
       document.getElementById("dashboard").style.pointerEvents = "auto";
       fetchAccountState(addr);
+      refreshCredits();
       
       // Dummy-Daten für UI laden (Später via Cloudflare Bridge)
       document.getElementById("stake-bal").textContent = "1,250.00";
@@ -182,6 +206,8 @@
       if (tg && tg.initDataUnsafe?.user) {
         tg.ready(); tg.expand();
         const u = tg.initDataUnsafe.user;
+        tgUserId = String(u.id);
+        refreshCredits();
         const isAdmin = (u.username || "").toLowerCase() === "satoramy";
         document.getElementById("tg-status").innerHTML = `Telegram: <span class="ok">@${u.username || u.id}</span> (${isAdmin ? "MASTER / ADMIN" : "USER"})`;
       } else {
@@ -215,8 +241,10 @@
       const to = document.getElementById('swap-to').value;
       const amt = document.getElementById('swap-amount').value;
       if(!amt || amt <= 0) return alert("Bitte Betrag eingeben.");
-      alert(`[DEX] Simulierter Swap: ${amt} ${from} -> ${to}. (Wird später via Cloudflare-Proxy an den Smart Contract gesendet)`);
+      const fee = (amt * DEX_FEE).toFixed(4);
+      alert(`[DEX] Swap: ${amt} ${from} -> ${to}\nPlattform-Gebühr 1 %: ${fee} ${from} an den TGRAM Vault.\n(Ausführung via Smart Contract)`);
       document.getElementById('swap-amount').value = '';
+      updateSwapFee();
     }
 
     function executeStake() {
@@ -238,13 +266,26 @@
       const box = document.getElementById("chat-box");
       const q = inp.value.trim();
       if (!q) return;
-      box.innerHTML += `<div><strong>Du:</strong> ${q}</div>`;
+      const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+      box.innerHTML += `<div><strong>Du:</strong> ${esc(q)}</div>`;
       inp.value = "";
+      if (!creditSubject()) {
+        box.innerHTML += `<div><strong>Copilot:</strong> Bitte zuerst Wallet oder Telegram verbinden.</div>`;
+        return;
+      }
       try {
-        const p = "https://";
-        const res = await fetch(p + "text.pollinations.ai/" + encodeURIComponent("Du bist TGRAM Copilot für TON, NEC, BBC und AXF. Antworte kurz und präzise. " + q));
-        const ans = await res.text();
-        box.innerHTML += `<div><strong>Copilot:</strong> ${ans}</div>`;
+        const res = await fetch(TGRAM_API, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ subject: creditSubject(), prompt: q, kind: "ai" }),
+        });
+        const d = await res.json();
+        if (res.status === 402) {
+          box.innerHTML += `<div><strong>Copilot:</strong> Nicht genug Credits (${d.available}). Aufladen mit Kommentar TGRAM:${esc(creditSubject())}${d.pay ? ` – <a href="${d.pay}" style="color:#38bdf8">jetzt zahlen</a>` : ""}</div>`;
+        } else {
+          box.innerHTML += `<div><strong>Copilot:</strong> ${esc(d.answer || d.error)}</div>`;
+        }
+        refreshCredits();
       } catch (e) {
         box.innerHTML += `<div><strong>Copilot:</strong> Verbindungsfehler zum Serverless Proxy.</div>`;
       }
