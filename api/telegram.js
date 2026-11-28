@@ -31,13 +31,74 @@ async function needCredits(chatId, uid, res) {
   );
 }
 
+const BUILTIN = ["start", "app", "help", "balance", "buy", "price", "game", "ask", "stars", "cmd"];
+const NAME_RE = /^[a-z][a-z0-9_]{1,30}$/;
+
+// Per-chat sub-commands are stored by Telegram itself (setMyCommands, chat scope); the
+// description holds the prompt. Changes only happen after the user taps "Erlauben".
+async function chatCommands(chatId) {
+  const r = await (await tg("getMyCommands", { scope: { type: "chat", chat_id: chatId } })).json();
+  return r.result || [];
+}
+
+async function proposeCmd(chatId, op, name, prompt) {
+  const text = op === "add" ? `Neuen Sub-Befehl /${name} anlegen?\n\n${prompt}` : `Sub-Befehl /${name} entfernen?`;
+  return reply(chatId, text, {
+    reply_markup: { inline_keyboard: [[{ text: "Erlauben", callback_data: `cmd:${op}:${name}` }, { text: "Ablehnen", callback_data: "cmd:deny" }]] },
+  });
+}
+
+async function handleCallback(q) {
+  const chatId = q.message?.chat?.id;
+  const [, op, name] = String(q.data || "").split(":");
+  await tg("answerCallbackQuery", { callback_query_id: q.id });
+  if (!chatId || op === "deny" || !NAME_RE.test(name || "")) {
+    return tg("editMessageText", { chat_id: chatId, message_id: q.message.message_id, text: "Abgelehnt." });
+  }
+  const current = (await chatCommands(chatId)).filter(c => c.command !== name);
+  if (op === "add") {
+    const prompt = String(q.message.text || "").split("\n\n").slice(1).join("\n\n").slice(0, 256);
+    current.push({ command: name, description: prompt || name });
+  }
+  await tg("setMyCommands", { commands: current, scope: { type: "chat", chat_id: chatId } });
+  return tg("editMessageText", { chat_id: chatId, message_id: q.message.message_id, text: op === "add" ? `/${name} angelegt.` : `/${name} entfernt.` });
+}
+
 async function handle(msg) {
   const chatId = msg.chat.id;
   const uid = String(msg.from?.id || chatId);
+  if (msg.successful_payment) {
+    const b = await balance(uid);
+    return reply(chatId, `Danke! ${msg.successful_payment.total_amount} Stars erhalten. Credits: ${b.available}.`);
+  }
   const text = (msg.text || "").trim();
   const [cmdRaw, ...rest] = text.split(" ");
   const cmd = cmdRaw.split("@")[0].toLowerCase();
   const arg = rest.join(" ").trim();
+
+  if (cmd === "/stars") {
+    const amount = Math.min(10000, Math.max(1, parseInt(arg, 10) || 50));
+    return tg("sendInvoice", {
+      chat_id: chatId,
+      title: "TGRAM Credits",
+      description: `${amount} Credits fuer TGRAM (1 Star = 1 Credit). Unterstuetzt die KI, die der Bot fuer alle bezahlt.`,
+      payload: `TGRAM:${uid}`,
+      currency: "XTR",
+      prices: [{ label: `${amount} Credits`, amount }],
+    });
+  }
+  if (cmd === "/cmd") {
+    const [op, raw, ...p] = arg.split(" ");
+    const name = (raw || "").replace(/^\//, "").toLowerCase();
+    if (!op || op === "list") {
+      const list = await chatCommands(chatId);
+      return reply(chatId, list.length ? list.map(c => `/${c.command} - ${c.description}`).join("\n") : "Keine eigenen Sub-Befehle. /cmd add name prompt");
+    }
+    if (!NAME_RE.test(name) || BUILTIN.includes(name)) return reply(chatId, "Ungueltiger oder reservierter Befehlsname.");
+    if (op === "add" && p.join(" ").trim()) return proposeCmd(chatId, "add", name, p.join(" ").trim().slice(0, 256));
+    if (op === "remove") return proposeCmd(chatId, "remove", name);
+    return reply(chatId, "Nutzung: /cmd add|remove|list name [prompt]");
+  }
 
   if (cmd === "/start" || cmd === "/app") {
     return reply(chatId, "Willkommen bei TGRAM. Schreib mir einfach - die KI ist kostenlos. Mini App, DEX (1 % Gebuehr) und Mini Game ueber den Knopf.", openAppKeyboard);
@@ -52,6 +113,8 @@ async function handle(msg) {
         "/balance - Credits anzeigen",
         "/buy - Value-Support: TON/NEC/BBC/AXF an den Vault",
         "/price - Gebuehren & Preise",
+        "/stars <n> - Credits mit Telegram Stars kaufen (1 Star = 1 Credit)",
+        "/cmd add|remove|list - eigene Sub-Befehle (nur nach Erlauben)",
         `/game - Mini Game starten (${PRICING.cost.game ? PRICING.cost.game + " Credit" : "kostenlos"})`,
       ].join("\n"),
     );
@@ -77,7 +140,11 @@ async function handle(msg) {
     return reply(chatId, c.free ? "Game gestartet." : `Game gestartet (-${c.cost} Credit, Rest ${c.available}).`, openAppKeyboard);
   }
 
-  const question = cmd === "/ask" ? arg : text.startsWith("/") ? "" : text;
+  let question = cmd === "/ask" ? arg : text.startsWith("/") ? "" : text;
+  if (!question && text.startsWith("/")) {
+    const custom = (await chatCommands(chatId)).find(c => "/" + c.command === cmd);
+    if (custom) question = custom.description + (arg ? "\n" + arg : "");
+  }
   if (!question) return reply(chatId, "Unbekannter Befehl. /help zeigt alle Befehle.");
   const c = await charge(uid, "ai");
   if (!c.ok) return needCredits(chatId, uid, c);
@@ -92,8 +159,15 @@ module.exports = async (req, res) => {
   if (SECRET && req.headers["x-telegram-bot-api-secret-token"] !== SECRET) return res.status(401).end();
   try {
     const update = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-    const msg = update?.message || update?.edited_message;
-    if (msg) await handle(msg);
+    if (update?.pre_checkout_query) {
+      const q = update.pre_checkout_query;
+      await tg("answerPreCheckoutQuery", { pre_checkout_query_id: q.id, ok: q.currency === "XTR" && q.invoice_payload === `TGRAM:${q.from.id}` });
+    } else if (update?.callback_query) {
+      await handleCallback(update.callback_query);
+    } else {
+      const msg = update?.message || update?.edited_message;
+      if (msg) await handle(msg);
+    }
   } catch (e) {
     console.error("telegram webhook error", e);
   }

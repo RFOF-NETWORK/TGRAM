@@ -58,6 +58,42 @@
     dialog { background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 12px; width: min(420px, 92vw); padding: 1rem; }
     dialog::backdrop { background: rgba(0,0,0,0.6); }
     .addr { word-break: break-all; background: #0b111e; border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem; font-size: 0.8rem; }
+
+    .history-btn { position: relative; padding: 0.5rem; }
+    .history-btn .dot { position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); display: none; }
+    .history-btn.live .dot { display: block; }
+    button.list-row { width: 100%; color: var(--text); font-family: monospace; text-align: left; cursor: pointer; }
+    button.list-row:hover { border-color: var(--primary); }
+    .tx-in { color: var(--ok); } .tx-out { color: #f87171; }
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+    .stat { background: #0b111e; border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem; font-size: 0.8rem; color: var(--muted); }
+    .stat strong { display: block; color: var(--text); font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .explorer-pick { display: flex; flex-direction: column; gap: 0.5rem; }
+    .explorer-pick a { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; background: #0b111e; border: 1px solid var(--border); border-radius: 10px; padding: 0.8rem; color: var(--text); text-decoration: none; }
+    .explorer-pick a:hover { border-color: var(--primary); color: var(--primary); }
+    dialog[open] { animation: pop 0.18s ease-out; }
+    @keyframes pop { from { transform: translateY(12px) scale(0.97); opacity: 0; } to { transform: none; opacity: 1; } }
+
+    #chart { height: 260px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); background: #0b111e; }
+    .chip-row { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
+    .chip { background: #0b111e; border: 1px solid var(--border); color: var(--muted); border-radius: 999px; padding: 0.3rem 0.7rem; font-family: monospace; font-size: 0.78rem; cursor: pointer; }
+    .chip[aria-pressed="true"] { border-color: var(--primary); color: var(--primary); }
+    .trade-actions { display: flex; gap: 0.5rem; }
+    .trade-actions .btn { flex: 1; }
+    .btn-buy { background: #15803d; } .btn-sell { background: #b91c1c; }
+
+    #view-tc { display: flex; flex-direction: column; min-height: calc(100vh - 15rem); }
+    #view-tc .chat-card { flex: 1; display: flex; flex-direction: column; }
+    #tc-log { flex: 1; display: flex; flex-direction: column; gap: 0.6rem; overflow-y: auto; max-height: 55vh; padding-bottom: 0.5rem; }
+    .msg { max-width: 88%; padding: 0.6rem 0.8rem; border-radius: 12px; font-size: 0.85rem; white-space: pre-wrap; word-break: break-word; }
+    .msg.user { align-self: flex-end; background: #0c4a6e; border-bottom-right-radius: 4px; }
+    .msg.bot { align-self: flex-start; background: #0b111e; border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+    .msg.sys { align-self: center; color: var(--muted); font-size: 0.75rem; background: none; }
+    .msg pre { background: #02060c; border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem; overflow-x: auto; margin: 0.4rem 0 0; white-space: pre; }
+    .composer { display: flex; gap: 0.5rem; align-items: flex-end; margin-top: 0.6rem; }
+    .composer textarea { flex: 1; resize: none; min-height: 44px; max-height: 140px; padding: 0.7rem; border-radius: 10px; border: 1px solid var(--border); background: #0b111e; color: var(--text); font-family: monospace; font-size: 0.9rem; }
+    .repo-ctx { font-size: 0.75rem; color: var(--ok); margin-bottom: 0.4rem; }
+    textarea { box-sizing: border-box; }
   </style>
 </head>
 <body>
@@ -81,7 +117,7 @@
   <header class="app-header">
     <h1><svg class="icon"><use href="#i-globe"/></svg>TGRAM Gateway</h1>
     <div class="header-actions">
-      <button class="icon-btn" type="button" onclick="showTab('verlauf')" aria-label="Verlauf"><svg class="icon"><use href="#i-history"/></svg></button>
+      <button class="icon-btn history-btn" id="history-btn" type="button" onclick="showTab('verlauf')" aria-label="Verlauf und Account-Analyse" title="Verlauf & Account-Analyse"><svg class="icon"><use href="#i-history"/></svg><span class="dot" aria-hidden="true"></span></button>
       <button class="icon-btn" type="button" onclick="showTab('profil')" aria-label="Settings"><svg class="icon"><use href="#i-gear"/></svg></button>
       <a class="icon-btn" href="https://t.me/wallet?start=buy" target="_blank" rel="noopener noreferrer"><svg class="icon"><use href="#i-card"/></svg>Kaufen</a>
     </div>
@@ -114,15 +150,6 @@
       <p class="muted" style="margin-bottom:0;">Jetton-Gebühren (NEC/BBC/AXF) übernimmt <strong>@toncoing_bot</strong> als Freundschaftsbündnis mit seinen Usern.</p>
     </div>
 
-    <div class="card">
-      <h3 style="display:flex; align-items:center; gap:0.5rem;"><svg class="icon"><use href="#i-bot"/></svg>TGRAM Copilot</h3>
-      <div class="token-balance"><span>KI: kostenlos & unbegrenzt · Credits (optional):</span><span id="ai-credits">verbinden...</span></div>
-      <div id="chat-box"><div><strong>Copilot:</strong> Serverless Proxy aktiv. Frag mich nach TON, NEC, BBC oder AXF.</div></div>
-      <div style="display:flex; gap:0.5rem;">
-        <input id="chat-input" type="text" placeholder="Deine Frage..." style="flex:1;" aria-label="Frage an den Copilot" />
-        <button class="btn" style="width:auto; margin:0;" onclick="askCopilot()">Senden</button>
-      </div>
-    </div>
 
     <section class="card" aria-labelledby="app-tg-connect-title">
       <h3 id="app-tg-connect-title">Telegram Connect</h3>
@@ -156,7 +183,22 @@
   <!-- ================= DEX ================= -->
   <section id="view-dex" data-view class="hidden" aria-label="DEX Trading">
     <div class="card">
-      <h3>DEX Trading</h3>
+      <h3>Chart</h3>
+      <div class="chip-row" role="group" aria-label="Paar" id="chart-pairs">
+        <button type="button" class="chip" aria-pressed="true" data-pair="TON">TON/USD</button>
+        <button type="button" class="chip" aria-pressed="false" data-pair="NEC">NEC/TON</button>
+        <button type="button" class="chip" aria-pressed="false" data-pair="BBC">BBC/TON</button>
+        <button type="button" class="chip" aria-pressed="false" data-pair="AXF">AXF/TON</button>
+      </div>
+      <div id="chart" role="img" aria-label="Kerzen-Chart"></div>
+      <div class="token-balance" style="margin-top:0.5rem;"><span id="chart-label">TON/USD · 7 Tage</span><span id="chart-last">–</span></div>
+      <div class="trade-actions">
+        <button class="btn btn-buy" type="button" onclick="quickTrade('buy')">Kaufen</button>
+        <button class="btn btn-sell" type="button" onclick="quickTrade('sell')">Verkaufen</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Swap</h3>
       <p class="muted">Swap über STON.fi DEX v2. TON-Swaps: 1 % Plattform-Gebühr on-chain an den TGRAM Vault. Jetton-Swaps (NEC/BBC/AXF): die Plattform-Gebühr übernimmt @toncoing_bot.</p>
       <div class="input-group">
         <select id="dex-from" aria-label="Von" onchange="updateDexFee()"><option>TON</option><option>NEC</option><option>BBC</option><option>AXF</option></select>
@@ -169,15 +211,45 @@
       <button class="btn" type="button" onclick="executeDexSwap()">Gebühr zahlen & Swap öffnen</button>
     </div>
     <div class="card">
+      <h3>Meine Transaktionen</h3>
+      <div class="chip-row" role="group" aria-label="Währung filtern" id="trade-filter">
+        <button type="button" class="chip" aria-pressed="true" data-sym="ALL">Alle</button>
+        <button type="button" class="chip" aria-pressed="false" data-sym="TON">TON</button>
+        <button type="button" class="chip" aria-pressed="false" data-sym="NEC">NEC</button>
+        <button type="button" class="chip" aria-pressed="false" data-sym="BBC">BBC</button>
+        <button type="button" class="chip" aria-pressed="false" data-sym="AXF">AXF</button>
+      </div>
+      <div class="list" id="trade-list"><p class="muted">Wallet verbinden: deine Transaktionen bleiben hier sortiert nach Währung und Datum stehen.</p></div>
+    </div>
+    <div class="card">
       <h3>Liquidity Pools</h3>
       <div class="list" id="pool-list"><p class="muted">Lade Pools von STON.fi...</p></div>
     </div>
   </section>
 
   <!-- ================= LAUNCHPAD ================= -->
-  <section id="view-launchpad" data-view class="hidden" aria-label="Launchpad">
+  <section id="view-launchpad" data-view class="hidden" aria-label="TLPFG Token Launchpad for Games">
+    <form class="card" id="tlpfg-form" onsubmit="event.preventDefault(); launchToken();">
+      <h3>TLPFG · Token Launchpad for Games</h3>
+      <p class="muted" style="margin-top:0;">Launche einen eigenen Jetton (TEP-74/TEP-64) zusammen mit deiner Game-Mini-App.</p>
+      <div class="input-group">
+        <input id="lp-name" required maxlength="40" placeholder="Token-Name" aria-label="Token-Name" />
+        <input id="lp-symbol" required maxlength="8" placeholder="SYMBOL" aria-label="Symbol" style="max-width:8rem; text-transform:uppercase;" />
+      </div>
+      <div class="input-group">
+        <input id="lp-supply" type="number" min="1" required placeholder="Gesamtmenge" aria-label="Gesamtmenge" />
+        <input id="lp-decimals" type="number" min="0" max="18" value="9" aria-label="Decimals" style="max-width:6rem;" />
+      </div>
+      <input id="lp-image" type="url" placeholder="Logo-URL (https://...)" aria-label="Logo-URL" style="margin-bottom:0.5rem;" />
+      <textarea id="lp-desc" rows="2" maxlength="300" placeholder="Beschreibung" aria-label="Beschreibung" style="width:100%; padding:0.8rem; border-radius:8px; border:1px solid var(--border); background:#0b111e; color:var(--text); font-family:monospace; margin-bottom:0.5rem;"></textarea>
+      <h3 style="margin:0.5rem 0;">Game Mini App</h3>
+      <input id="lp-game-url" type="url" placeholder="Game-URL (https://... deine Web-App)" aria-label="Game-URL" style="margin-bottom:0.5rem;" />
+      <input id="lp-app-short" maxlength="30" pattern="[A-Za-z0-9_]{3,30}" placeholder="Mini-App-Kurzname (z. B. mygame)" aria-label="Mini-App-Kurzname" />
+      <button class="btn" type="submit">Token + Mini App launchen</button>
+      <div id="lp-result" class="list" style="margin-top:0.6rem;" aria-live="polite"></div>
+    </form>
     <div class="card">
-      <h3>Launchpad · Extention Contracts</h3>
+      <h3>Extention Contracts</h3>
       <p class="muted">Jetton-Standard aus dem Repo <strong>TON-Coin</strong> (JettonMinter / JettonWallet in Tolk, Gas-Benchmarks und Tests).</p>
       <div class="list">
         <div class="list-row"><span>JettonMinter.tolk</span><a href="https://github.com/RFOF-NETWORK/TON-Coin/blob/main/contracts/JettonMinter.tolk" target="_blank" rel="noopener noreferrer">Contract</a></div>
@@ -235,7 +307,28 @@
   </section>
 
   <!-- ================= VERLAUF ================= -->
+  <!-- ================= TC · TGRAM COPILOT ================= -->
+  <section id="view-tc" data-view class="hidden" aria-label="TGRAM Copilot">
+    <div class="card chat-card">
+      <h3 style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.3rem;"><svg class="icon"><use href="#i-bot"/></svg>TGRAM Copilot</h3>
+      <div class="token-balance"><span>KI vom Bot bezahlt · Credits:</span><span id="ai-credits">verbinden...</span></div>
+      <div class="chip-row" id="tc-chips"></div>
+      <div id="repo-ctx" class="repo-ctx hidden"></div>
+      <div id="tc-log" aria-live="polite"></div>
+      <div class="composer">
+        <textarea id="chat-input" rows="1" placeholder="Frage oder /befehl ... (/help)" aria-label="Nachricht an den Copilot"></textarea>
+        <button class="btn" style="width:auto; margin:0;" type="button" onclick="askCopilot()">Senden</button>
+      </div>
+    </div>
+  </section>
+
   <section id="view-verlauf" data-view class="hidden" aria-label="Verlauf">
+    <div class="card">
+      <h3>Account-Analyse</h3>
+      <div class="stat-grid" id="acc-stats"><p class="muted">Wallet verbinden, um Status und Cluster-Daten zu sehen.</p></div>
+      <div class="list" id="acc-cluster" style="margin-top:0.6rem;"></div>
+      <button class="btn btn-ghost" type="button" id="acc-explorer" onclick="openExplorer('account', userAddress)" disabled>Account im Explorer öffnen</button>
+    </div>
     <div class="card">
       <h3>TON-Transaktionen</h3>
       <div class="list" id="tx-list"><p class="muted">Wallet verbinden, um den Verlauf aus der Blockchain zu laden.</p></div>
@@ -263,10 +356,29 @@
   <nav class="bottom-nav" aria-label="Hauptnavigation">
     <button type="button" data-nav="home" aria-current="page" onclick="showTab('home')"><svg class="icon"><use href="#i-home"/></svg>Home</button>
     <button type="button" data-nav="dex" onclick="showTab('dex')"><svg class="icon"><use href="#i-chart"/></svg>Trading</button>
-    <button type="button" data-nav="launchpad" onclick="showTab('launchpad')"><svg class="icon"><use href="#i-rocket"/></svg>Launchpad</button>
+    <button type="button" data-nav="tc" onclick="showTab('tc')" aria-label="TC TGRAM Copilot"><svg class="icon"><use href="#i-bot"/></svg>TC</button>
+    <button type="button" data-nav="launchpad" onclick="showTab('launchpad')"><svg class="icon"><use href="#i-rocket"/></svg>TLPFG</button>
     <button type="button" data-nav="staking" onclick="showTab('staking')"><svg class="icon"><use href="#i-coins"/></svg>Mining</button>
-    <button type="button" data-nav="profil" onclick="showTab('profil')"><svg class="icon"><use href="#i-user"/></svg>Profil</button>
   </nav>
+
+  <dialog id="explorer-dialog" aria-labelledby="explorer-title">
+    <h3 id="explorer-title">Im Explorer ansehen</h3>
+    <p class="muted addr" id="explorer-id"></p>
+    <div class="explorer-pick">
+      <a id="ex-tonviewer" target="_blank" rel="noopener noreferrer"><span>Tonviewer</span><span class="muted">tonviewer.com</span></a>
+      <a id="ex-tonscan" target="_blank" rel="noopener noreferrer"><span>Tonscan</span><span class="muted">tonscan.org</span></a>
+      <a id="ex-toncx" target="_blank" rel="noopener noreferrer"><span>TON Explorer</span><span class="muted">explorer.toncoin.org</span></a>
+    </div>
+    <button class="btn btn-ghost" type="button" onclick="this.closest('dialog').close()">Schließen</button>
+  </dialog>
+
+  <dialog id="allow-dialog" aria-labelledby="allow-title">
+    <h3 id="allow-title">Befehl erlauben?</h3>
+    <p class="muted" id="allow-text"></p>
+    <div class="addr" id="allow-detail"></div>
+    <button class="btn" type="button" id="allow-yes">Erlauben</button>
+    <button class="btn btn-ghost" type="button" onclick="this.closest('dialog').close('deny')">Ablehnen</button>
+  </dialog>
 
   <dialog id="send-dialog" aria-labelledby="send-title">
     <h3 id="send-title">Senden</h3>
@@ -300,7 +412,10 @@
     const short = a => a ? a.slice(0, 6) + "..." + a.slice(-4) : "";
 
     // --- V4.1 Navigation ---
-    const VIEWS = ['home', 'dex', 'launchpad', 'staking', 'verlauf', 'profil'];
+    const VIEWS = ['home', 'dex', 'tc', 'launchpad', 'staking', 'verlauf', 'profil'];
+    let txCache = [];
+    let tradeFilter = 'ALL';
+    let chartPair = 'TON';
     const jettons = {};
     const feeRate = sym => sym === 'TON' ? DEX_FEE : 0;
 
@@ -314,8 +429,9 @@
       document.querySelectorAll('[data-view]').forEach(v => v.classList.toggle('hidden', v.id !== 'view-' + name));
       document.querySelectorAll('[data-nav]').forEach(b => { if (b.dataset.nav === name) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
       if (name === 'staking' && userAddress) loadJettons();
-      if (name === 'verlauf' && userAddress) loadHistory();
-      if (name === 'dex') { loadPools(); updateDexFee(); }
+      if (name === 'verlauf' && userAddress) loadHistory().then(loadAccountAnalysis);
+      if (name === 'dex') { loadPools(); updateDexFee(); loadChart(chartPair); if (userAddress && !txCache.length) loadHistory(); }
+      if (name === 'tc') { initCopilot(); setTimeout(() => document.getElementById('chat-input').focus(), 50); }
       window.scrollTo(0, 0);
     }
     window.addEventListener('hashchange', () => renderView(location.hash.slice(1)));
@@ -415,31 +531,160 @@
       const tl = document.getElementById("tx-list");
       const jtl = document.getElementById("jt-list");
       tl.innerHTML = jtl.innerHTML = '<p class="muted">Lade aus der Blockchain...</p>';
-      const explorer = network === "testnet" ? "https://testnet.tonviewer.com/transaction/" : "https://tonviewer.com/transaction/";
+      const items = [];
       try {
-        const d = await (await fetch(base + "/jetton/transfers?owner_address=" + encodeURIComponent(userAddress) + "&limit=10&sort=desc")).json();
+        const d = await (await fetch(base + "/jetton/transfers?owner_address=" + encodeURIComponent(userAddress) + "&limit=50&sort=desc")).json();
         const masters = Object.fromEntries(Object.entries(jettons).map(([s, j]) => [j.master, j]));
-        jtl.innerHTML = (d.jetton_transfers || []).map(t => {
+        (d.jetton_transfers || []).forEach(t => {
           const j = masters[t.jetton_master];
           const sym = Object.keys(jettons).find(s => jettons[s] === j) || short(t.jetton_master);
-          const amt = (Number(t.amount) / 10 ** (j ? j.decimals : 9)).toFixed(4);
-          const dir = t.source_wallet && j && t.source_wallet === j.wallet ? "Ausgang" : "Eingang";
-          const date = new Date(t.transaction_now * 1000).toLocaleString("de-DE");
-          return `<div class="list-row"><span>${esc(date)}<br>${dir} ${esc(amt)} ${esc(sym)}</span><a href="${explorer + encodeURIComponent(t.transaction_hash)}" target="_blank" rel="noopener noreferrer">TX</a></div>`;
-        }).join("") || '<p class="muted">Noch keine Jetton-Transfers.</p>';
+          const out = !!(t.source_wallet && j && t.source_wallet === j.wallet);
+          items.push({ ts: t.transaction_now, sym, out, amt: Number(t.amount) / 10 ** (j ? j.decimals : 9), hash: t.transaction_hash, peer: out ? t.destination : t.source, jetton: true });
+        });
       } catch (e) { jtl.innerHTML = '<p class="warn">Jetton-Transfers konnten nicht geladen werden.</p>'; }
       try {
-        const t = await (await fetch(base + "/transactions?account=" + encodeURIComponent(userAddress) + "&limit=10&sort=desc")).json();
-        tl.innerHTML = (t.transactions || []).map(tx => {
+        const t = await (await fetch(base + "/transactions?account=" + encodeURIComponent(userAddress) + "&limit=50&sort=desc")).json();
+        (t.transactions || []).forEach(tx => {
           const inVal = Number(tx.in_msg && tx.in_msg.value || 0);
           const outVal = (tx.out_msgs || []).reduce((s, m) => s + Number(m.value || 0), 0);
-          const type = outVal > 0 ? "Ausgang" : "Eingang";
-          const amt = ((outVal || inVal) / 1e9).toFixed(4);
-          const date = new Date(tx.now * 1000).toLocaleString("de-DE");
-          const hash = tx.hash;
-          return `<div class="list-row"><span>${esc(date)}<br>${type} ${esc(amt)} TON</span><a href="${explorer + encodeURIComponent(hash)}" target="_blank" rel="noopener noreferrer">TX</a></div>`;
-        }).join("") || '<p class="muted">Noch keine Transaktionen.</p>';
+          const out = outVal > 0;
+          const peer = out ? (tx.out_msgs[0] || {}).destination : (tx.in_msg || {}).source;
+          items.push({ ts: tx.now, sym: 'TON', out, amt: (outVal || inVal) / 1e9, hash: tx.hash, peer, jetton: false });
+        });
       } catch (e) { tl.innerHTML = '<p class="warn">Verlauf konnte nicht geladen werden.</p>'; }
+      txCache = items.sort((a, b) => b.ts - a.ts);
+      document.getElementById('history-btn').classList.toggle('live', txCache.length > 0);
+      tl.innerHTML = txCache.filter(i => !i.jetton).slice(0, 15).map(txRow).join("") || '<p class="muted">Noch keine Transaktionen.</p>';
+      if (!jtl.querySelector('.warn')) jtl.innerHTML = txCache.filter(i => i.jetton).slice(0, 15).map(txRow).join("") || '<p class="muted">Noch keine Jetton-Transfers.</p>';
+      renderTrades();
+    }
+
+    function txRow(i) {
+      const date = new Date(i.ts * 1000).toLocaleString("de-DE");
+      return `<button type="button" class="list-row" onclick="openExplorer('tx', '${esc(i.hash)}')"><span>${esc(date)}<br><span class="${i.out ? 'tx-out' : 'tx-in'}">${i.out ? '−' : '+'}${esc(i.amt.toFixed(4))} ${esc(i.sym)}</span></span><span class="muted">${i.out ? 'Ausgang' : 'Eingang'}<br>${esc(short(i.peer || ''))}</span></button>`;
+    }
+
+    function renderTrades() {
+      const el = document.getElementById('trade-list');
+      if (!userAddress) return;
+      const rows = txCache.filter(i => tradeFilter === 'ALL' || i.sym === tradeFilter);
+      el.innerHTML = rows.slice(0, 30).map(txRow).join('') || `<p class="muted">Keine ${tradeFilter === 'ALL' ? '' : esc(tradeFilter) + '-'}Transaktionen.</p>`;
+    }
+
+    function b64ToHex(h) {
+      if (/^[0-9a-f]{64}$/i.test(h)) return h.toLowerCase();
+      try { return [...atob(h.replace(/-/g, '+').replace(/_/g, '/'))].map(c => c.charCodeAt(0).toString(16).padStart(2, '0')).join(''); } catch (e) { return h; }
+    }
+
+    function openExplorer(kind, id) {
+      if (!id) return;
+      const t = network === 'testnet';
+      const hex = kind === 'tx' ? b64ToHex(id) : id;
+      const v = t ? 'https://testnet.tonviewer.com/' : 'https://tonviewer.com/';
+      const s = t ? 'https://testnet.tonscan.org/' : 'https://tonscan.org/';
+      const x = 'https://explorer.toncoin.org/';
+      document.getElementById('explorer-title').textContent = kind === 'tx' ? 'Transaktion ansehen' : 'Account ansehen';
+      document.getElementById('explorer-id').textContent = hex;
+      document.getElementById('ex-tonviewer').href = kind === 'tx' ? v + 'transaction/' + hex : v + encodeURIComponent(id);
+      document.getElementById('ex-tonscan').href = kind === 'tx' ? s + 'tx/' + hex : s + 'address/' + encodeURIComponent(id);
+      document.getElementById('ex-toncx').href = kind === 'tx' ? x + 'transaction?hash=' + hex : x + 'account?account=' + encodeURIComponent(id);
+      document.getElementById('ex-toncx').classList.toggle('hidden', t);
+      document.getElementById('explorer-dialog').showModal();
+    }
+
+    async function loadAccountAnalysis() {
+      if (!userAddress) return;
+      const st = document.getElementById('acc-stats');
+      document.getElementById('acc-explorer').disabled = false;
+      let acc = {};
+      try { acc = await (await fetch((network === 'testnet' ? 'https://testnet.tonapi.io' : 'https://tonapi.io') + '/v2/accounts/' + encodeURIComponent(userAddress))).json(); } catch (e) {}
+      const stat = (k, v, cls = '') => `<div class="stat">${esc(k)}<strong class="${cls}">${esc(v)}</strong></div>`;
+      const ins = txCache.filter(i => !i.out).length, outs = txCache.length - ins;
+      st.innerHTML =
+        stat('Status', acc.status || 'unbekannt', acc.status === 'active' ? 'ok' : 'warn') +
+        stat('Wallet', (acc.interfaces || []).find(i => /wallet/i.test(i)) || '–') +
+        stat('Balance', acc.balance != null ? (acc.balance / 1e9).toFixed(4) + ' TON' : document.getElementById('balance-ton').textContent) +
+        stat('Letzte Aktivität', acc.last_activity ? new Date(acc.last_activity * 1000).toLocaleDateString('de-DE') : '–') +
+        stat('Ein / Aus (geladen)', ins + ' / ' + outs) +
+        stat('Jettons', String(Object.keys(jettons).length)) +
+        stat('Scam-Flag', acc.is_scam ? 'JA' : 'nein', acc.is_scam ? 'warn' : 'ok') +
+        stat('Name', acc.name || '–');
+      const peers = {};
+      txCache.forEach(i => { if (i.peer) peers[i.peer] = (peers[i.peer] || 0) + 1; });
+      const top = Object.entries(peers).sort((a, b) => b[1] - a[1]).slice(0, 5);
+      document.getElementById('acc-cluster').innerHTML = top.length
+        ? '<p class="muted" style="margin:0;">Cluster · häufigste Gegenparteien:</p>' + top.map(([a, n]) => `<button type="button" class="list-row" onclick="openExplorer('account', '${esc(a)}')"><span>${esc(short(a))}${a === TGRAM_VAULT ? ' <span class="ok">(TGRAM Vault)</span>' : ''}</span><span>${n} TX</span></button>`).join('')
+        : '';
+    }
+
+    // --- Trading Chart (CoinGecko für TON, GeckoTerminal für Jettons) ---
+    let chartApi = null, candleSeries = null;
+    async function loadChart(pair) {
+      chartPair = pair;
+      document.querySelectorAll('#chart-pairs .chip').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.pair === pair)));
+      const label = document.getElementById('chart-label');
+      const last = document.getElementById('chart-last');
+      if (!window.LightweightCharts) await loadScript('https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js');
+      const el = document.getElementById('chart');
+      if (!chartApi && window.LightweightCharts) {
+        chartApi = LightweightCharts.createChart(el, { height: 260, layout: { background: { color: '#0b111e' }, textColor: '#94a3b8' }, grid: { vertLines: { color: '#1f2937' }, horzLines: { color: '#1f2937' } }, timeScale: { timeVisible: true } });
+        candleSeries = chartApi.addCandlestickSeries({ upColor: '#4ade80', downColor: '#f87171', borderVisible: false, wickUpColor: '#4ade80', wickDownColor: '#f87171' });
+        new ResizeObserver(() => chartApi.applyOptions({ width: el.clientWidth })).observe(el);
+      }
+      if (!candleSeries) { label.textContent = 'Chart-Bibliothek nicht erreichbar'; return; }
+      let candles = [];
+      try {
+        if (pair === 'TON') {
+          label.textContent = 'TON/USD · 7 Tage';
+          const d = await (await fetch('https://api.coingecko.com/api/v3/coins/the-open-network/ohlc?vs_currency=usd&days=7')).json();
+          candles = d.map(([t, o, h, l, c]) => ({ time: Math.floor(t / 1000), open: o, high: h, low: l, close: c }));
+        } else {
+          const j = jettons[pair];
+          if (!j) { candleSeries.setData([]); label.textContent = pair + ': Master-Adresse unbekannt (Wallet mit ' + pair + ' verbinden)'; last.textContent = '–'; return; }
+          label.textContent = pair + '/TON · Stundenkerzen';
+          const p = await (await fetch('https://api.geckoterminal.com/api/v2/networks/ton/tokens/' + encodeURIComponent(j.master) + '/pools')).json();
+          const pool = p.data && p.data[0] && p.data[0].attributes.address;
+          if (!pool) throw new Error('kein Pool');
+          const o = await (await fetch('https://api.geckoterminal.com/api/v2/networks/ton/pools/' + pool + '/ohlcv/hour?limit=168&currency=token')).json();
+          candles = (o.data.attributes.ohlcv_list || []).map(([t, op, h, l, c]) => ({ time: t, open: op, high: h, low: l, close: c })).reverse();
+        }
+        candleSeries.setData(candles);
+        chartApi.timeScale().fitContent();
+        last.textContent = candles.length ? candles[candles.length - 1].close.toPrecision(5) : '–';
+      } catch (e) { candleSeries.setData([]); label.textContent = pair + ': keine Kursdaten verfügbar'; last.textContent = '–'; }
+    }
+
+    function quickTrade(side) {
+      const sym = chartPair === 'TON' ? 'NEC' : chartPair;
+      document.getElementById('dex-from').value = side === 'buy' ? 'TON' : sym;
+      document.getElementById('dex-to').value = side === 'buy' ? sym : 'TON';
+      updateDexFee();
+      document.getElementById('dex-amount').focus();
+      document.getElementById('dex-amount').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    document.getElementById('chart-pairs').addEventListener('click', e => { const b = e.target.closest('[data-pair]'); if (b) loadChart(b.dataset.pair); });
+    document.getElementById('trade-filter').addEventListener('click', e => {
+      const b = e.target.closest('[data-sym]'); if (!b) return;
+      tradeFilter = b.dataset.sym;
+      document.querySelectorAll('#trade-filter .chip').forEach(c => c.setAttribute('aria-pressed', String(c === b)));
+      renderTrades();
+    });
+
+    // --- TLPFG: Token Launchpad for Games ---
+    function launchToken() {
+      const v = id => document.getElementById(id).value.trim();
+      const symbol = v('lp-symbol').toUpperCase();
+      const meta = { name: v('lp-name'), symbol, decimals: String(Number(v('lp-decimals') || 9)), description: v('lp-desc'), image: v('lp-image') || undefined, total_supply: v('lp-supply'), game_url: v('lp-game-url') || undefined, mini_app: v('lp-app-short') || undefined, launchpad: 'TGRAM TLPFG' };
+      const blob = new Blob([JSON.stringify(meta, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const steps = [
+        `<div class="list-row"><span>1. TEP-64 Metadaten</span><a href="${url}" download="${esc(symbol.toLowerCase())}-metadata.json">JSON laden</a></div>`,
+        `<div class="list-row"><span>2. Jetton deployen (Wallet signiert)</span><a href="https://minter.ton.org/" target="_blank" rel="noopener noreferrer">minter.ton.org</a></div>`,
+        `<div class="list-row"><span>3. Mini App anlegen: /newapp${meta.mini_app ? ' → ' + esc(meta.mini_app) : ''}</span><a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer">@BotFather</a></div>`,
+        `<div class="list-row"><span>4. Pool für ${esc(symbol)}/TON</span><a href="https://app.ston.fi/pools" target="_blank" rel="noopener noreferrer">STON.fi</a></div>`,
+      ];
+      document.getElementById('lp-result').innerHTML = steps.join('') + `<p class="muted" style="margin:0;">Supply ${esc(meta.total_supply)} ${esc(symbol)} · Jetton-Gebühren übernimmt @toncoing_bot.</p>`;
     }
 
     let poolsLoaded = false;
@@ -545,6 +790,7 @@
     }
 
     (async () => {
+      await null; // let the rest of the script (later let/const declarations) initialize first
       renderView(location.hash.slice(1));
       const p = "https://";
       await loadScript(p + "telegram.org/js/telegram-web-app.js");
@@ -623,32 +869,151 @@
       document.getElementById('xp-level').textContent = lvl + 1;
     }
 
-    // --- COPILOT (kostenlos, Credits optional) ---
-    async function askCopilot() {
-      const inp = document.getElementById("chat-input");
-      const box = document.getElementById("chat-box");
-      const q = inp.value.trim();
-      if (!q) return;
-      box.innerHTML += `<div><strong>Du:</strong> ${esc(q)}</div>`;
-      inp.value = "";
-      try {
-        const res = await fetch(TGRAM_API, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ subject: creditSubject() || "guest", prompt: q, kind: "ai" }),
-        });
-        const d = await res.json();
-        box.innerHTML += `<div><strong>Copilot:</strong> ${esc(d.answer || d.error || "Keine Antwort.")}</div>`;
-        refreshCredits();
-      } catch (e) {
-        box.innerHTML += `<div><strong>Copilot:</strong> Verbindungsfehler zum Serverless Proxy.</div>`;
-      }
-      box.scrollTop = box.scrollHeight;
+    // --- TC · TGRAM COPILOT (KI vom Bot bezahlt, Slash-Befehle, eigene Sub-Befehle nur per Allow-Popup) ---
+    const CUSTOM_KEY = 'tgram_custom_cmds';
+    const customCmds = () => { try { return JSON.parse(localStorage.getItem(CUSTOM_KEY) || '{}'); } catch (e) { return {}; } };
+    let repoCtx = null;
+    let copilotReady = false;
+
+    const BUILTIN = {
+      help: { d: 'Alle Befehle', run: () => say('bot', 'Befehle:\n' + Object.entries(BUILTIN).map(([k, c]) => '/' + k + ' – ' + c.d).join('\n') + (Object.keys(customCmds()).length ? '\n\nEigene:\n' + Object.entries(customCmds()).map(([k, p]) => '/' + k + ' – ' + p.slice(0, 50)).join('\n') : '')) },
+      balance: { d: 'TON + Jettons', run: () => say('bot', userAddress ? 'TON: ' + document.getElementById('balance-ton').textContent + '\n' + ['NEC', 'BBC', 'AXF'].map(s => s + ': ' + (jettons[s] ? jettons[s].balance.toFixed(4) : '0')).join('\n') : 'Bitte zuerst Wallet verbinden (Home).') },
+      send: { d: 'Senden-Dialog', run: () => openSend() },
+      receive: { d: 'Eigene Adresse', run: () => openReceive() },
+      swap: { d: '/swap TON NEC 1', run: a => { const [f, t, n] = a.split(/\s+/); showTab('dex'); setTimeout(() => { if (f) document.getElementById('dex-from').value = f.toUpperCase(); if (t) document.getElementById('dex-to').value = t.toUpperCase(); if (n) document.getElementById('dex-amount').value = n; updateDexFee(); }, 50); } },
+      verlauf: { d: 'Verlauf & Analyse', run: () => showTab('verlauf') },
+      mining: { d: 'Mining öffnen', run: () => showTab('staking') },
+      launch: { d: 'TLPFG öffnen', run: () => showTab('launchpad') },
+      repo: { d: '/repo owner/name – Repo als Kontext', run: a => loadRepo(a) },
+      file: { d: '/file pfad [frage] – Datei aus Repo', run: a => loadRepoFile(a) },
+      cmd: { d: '/cmd add|remove|list name [prompt]', run: a => manageCmd(a) },
+      clear: { d: 'Chat leeren', run: () => { document.getElementById('tc-log').innerHTML = ''; } },
+    };
+
+    function renderMsg(text) {
+      return esc(text).replace(/```(\w*)\n?([\s\S]*?)```/g, (_, l, c) => `<pre><code>${c}</code></pre>`).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    }
+    function say(who, text) {
+      const log = document.getElementById('tc-log');
+      const div = document.createElement('div');
+      div.className = 'msg ' + who;
+      div.innerHTML = renderMsg(text);
+      log.appendChild(div);
+      log.scrollTop = log.scrollHeight;
+      return div;
     }
 
-    document.getElementById("chat-input").addEventListener("keydown", e => {
-      if (e.key === "Enter" && !e.nativeEvent?.isComposing && !e.isComposing && e.keyCode !== 229) askCopilot();
+    function initCopilot() {
+      if (copilotReady) return;
+      copilotReady = true;
+      say('bot', 'Hi, ich bin TGRAM Copilot. Die KI bezahlt @toncoing_bot für alle User. Schreib eine Frage oder nutze /help. Mit /repo RFOF-NETWORK/TGRAM lade ich ein Repo als Kontext.');
+      document.getElementById('tc-chips').innerHTML = ['/help', '/balance', '/swap TON NEC 1', '/repo RFOF-NETWORK/TGRAM', '/cmd list'].map(c => `<button type="button" class="chip" data-cmd="${esc(c)}">${esc(c)}</button>`).join('');
+      document.getElementById('tc-chips').addEventListener('click', e => { const b = e.target.closest('[data-cmd]'); if (b) { document.getElementById('chat-input').value = b.dataset.cmd; askCopilot(); } });
+    }
+
+    function allow(text, detail) {
+      return new Promise(resolve => {
+        const dlg = document.getElementById('allow-dialog');
+        document.getElementById('allow-text').textContent = text;
+        document.getElementById('allow-detail').textContent = detail;
+        document.getElementById('allow-yes').onclick = () => dlg.close('allow');
+        dlg.onclose = () => resolve(dlg.returnValue === 'allow');
+        dlg.returnValue = '';
+        dlg.showModal();
+      });
+    }
+
+    async function manageCmd(a) {
+      const [op, rawName, ...rest] = a.split(/\s+/);
+      const name = (rawName || '').toLowerCase().replace(/^\//, '');
+      const all = customCmds();
+      if (op === 'list' || !op) return say('bot', Object.keys(all).length ? Object.entries(all).map(([k, p]) => '/' + k + ' → ' + p).join('\n') : 'Noch keine eigenen Befehle. /cmd add name prompt');
+      if (!/^[a-z][a-z0-9_]{1,30}$/.test(name) || BUILTIN[name]) return say('bot', 'Ungültiger oder reservierter Befehlsname.');
+      if (op === 'add') {
+        const prompt = rest.join(' ').trim();
+        if (!prompt) return say('bot', 'Prompt fehlt: /cmd add name prompt');
+        if (!(await allow('Neuen Sub-Befehl /' + name + ' anlegen?', prompt))) return say('sys', 'Abgelehnt.');
+        all[name] = prompt; localStorage.setItem(CUSTOM_KEY, JSON.stringify(all));
+        return say('sys', '/' + name + ' angelegt.');
+      }
+      if (op === 'remove') {
+        if (!all[name]) return say('bot', '/' + name + ' existiert nicht.');
+        if (!(await allow('Sub-Befehl /' + name + ' entfernen?', all[name]))) return say('sys', 'Abgelehnt.');
+        delete all[name]; localStorage.setItem(CUSTOM_KEY, JSON.stringify(all));
+        return say('sys', '/' + name + ' entfernt.');
+      }
+      say('bot', 'Nutzung: /cmd add|remove|list name [prompt]');
+    }
+
+    async function loadRepo(a) {
+      const repo = a.trim().replace(/^https:\/\/github\.com\//, '').replace(/\/$/, '');
+      if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) return say('bot', 'Nutzung: /repo owner/name');
+      const m = say('sys', 'Lade ' + repo + ' ...');
+      try {
+        const info = await (await fetch('https://api.github.com/repos/' + repo)).json();
+        if (!info.default_branch) throw new Error(info.message || 'nicht gefunden');
+        const tree = await (await fetch(`https://api.github.com/repos/${repo}/git/trees/${info.default_branch}?recursive=1`)).json();
+        const files = (tree.tree || []).filter(f => f.type === 'blob').map(f => f.path);
+        repoCtx = { repo, branch: info.default_branch, files, description: info.description || '' };
+        const ctx = document.getElementById('repo-ctx');
+        ctx.textContent = 'Repo-Kontext: ' + repo + '@' + info.default_branch + ' · ' + files.length + ' Dateien';
+        ctx.classList.remove('hidden');
+        m.remove();
+        say('bot', `${repo} geladen (${files.length} Dateien). Wichtige Dateien:\n` + files.filter(f => !/node_modules|\.lock|\.png|\.jpg/.test(f)).slice(0, 25).join('\n') + '\n\n/file pfad [frage] öffnet eine Datei.');
+      } catch (e) { m.remove(); say('bot', 'Repo konnte nicht geladen werden: ' + e.message); }
+    }
+
+    async function loadRepoFile(a) {
+      if (!repoCtx) return say('bot', 'Zuerst /repo owner/name laden.');
+      const [path, ...q] = a.trim().split(/\s+/);
+      if (!repoCtx.files.includes(path)) return say('bot', 'Datei nicht im Repo: ' + path);
+      try {
+        const text = await (await fetch(`https://raw.githubusercontent.com/${repoCtx.repo}/${repoCtx.branch}/${path}`)).text();
+        const question = q.join(' ') || 'Erkläre kurz, was diese Datei macht.';
+        await askAI(`Repo ${repoCtx.repo}, Datei ${path}:\n\`\`\`\n${text.slice(0, 3000)}\n\`\`\`\n${question}`, path + (q.length ? ': ' + question : ''));
+      } catch (e) { say('bot', 'Datei konnte nicht geladen werden.'); }
+    }
+
+    async function askAI(prompt, shown) {
+      const pending = say('bot', '...');
+      try {
+        const ctx = repoCtx && !shown ? `[Repo-Kontext: ${repoCtx.repo}, ${repoCtx.description}]\n` : '';
+        const res = await fetch(TGRAM_API, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ subject: creditSubject() || 'guest', prompt: (ctx + prompt).slice(0, 4000), kind: 'ai' }),
+        });
+        const d = await res.json();
+        const answer = d.answer || d.error || 'Keine Antwort.';
+        pending.innerHTML = renderMsg(answer);
+        refreshCredits();
+        const prop = answer.match(/^\/cmd add ([a-z][a-z0-9_]{1,30}) (.+)$/m);
+        if (prop) manageCmd('add ' + prop[1] + ' ' + prop[2]);
+      } catch (e) { pending.textContent = 'Verbindungsfehler zum Serverless Proxy.'; }
+    }
+
+    async function askCopilot() {
+      const inp = document.getElementById('chat-input');
+      const q = inp.value.trim();
+      if (!q) return;
+      inp.value = ''; inp.style.height = '';
+      say('user', q);
+      if (q.startsWith('/')) {
+        const [c, ...rest] = q.slice(1).split(' ');
+        const name = c.toLowerCase(), args = rest.join(' ');
+        if (BUILTIN[name]) return BUILTIN[name].run(args);
+        const custom = customCmds()[name];
+        if (custom) return askAI(custom + (args ? '\n' + args : ''));
+        return say('bot', 'Unbekannter Befehl /' + name + '. /help zeigt alle Befehle.');
+      }
+      askAI(q);
+    }
+
+    const chatInput = document.getElementById('chat-input');
+    chatInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); askCopilot(); }
     });
+    chatInput.addEventListener('input', () => { chatInput.style.height = ''; chatInput.style.height = Math.min(chatInput.scrollHeight, 140) + 'px'; });
   </script>
 </body>
 </html>

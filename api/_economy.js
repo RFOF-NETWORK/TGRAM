@@ -48,10 +48,32 @@ async function paidCredits(subject) {
   return Math.floor(credits);
 }
 
+// Telegram Stars (XTR) paid to @toncoing_bot. Telegram keeps the ledger, so no DB is needed:
+// getStarTransactions lists every incoming Star payment with the paying user.
+const STARS_PER_CREDIT = 1;
+async function starCredits(subject) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token || !/^\d+$/.test(subject)) return 0;
+  let stars = 0;
+  try {
+    for (let offset = 0; offset < 1000; offset += 100) {
+      const r = await fetch(`https://api.telegram.org/bot${token}/getStarTransactions?offset=${offset}&limit=100`);
+      const d = await r.json();
+      const list = d.result?.transactions || [];
+      for (const t of list) {
+        if (t.source?.type === "user" && String(t.source.user?.id) === subject && t.source.invoice_payload === `TGRAM:${subject}`) stars += t.amount || 0;
+      }
+      if (list.length < 100) break;
+    }
+  } catch {}
+  return Math.floor(stars / STARS_PER_CREDIT);
+}
+
 async function balance(subject) {
-  const paid = await paidCredits(subject);
+  const [ton, stars] = await Promise.all([paidCredits(subject), starCredits(subject)]);
+  const paid = ton + stars;
   const used = usage.get(subject) || 0;
-  return { paid, used, available: Math.max(0, paid - used) };
+  return { paid, stars, used, available: Math.max(0, paid - used) };
 }
 
 async function charge(subject, kind) {
