@@ -111,16 +111,18 @@ async function isAdmin(uid) {
 async function adminStats() {
   const [users, events] = await Promise.all([
     rest("tg_users?select=tg_id,stars_earned,axf_minted,ai_points,last_seen"),
-    rest("tg_events?select=chars,stars"),
+    rest("tg_events?select=chars,kind,meta"),
   ]);
   const dayAgo = Date.now() - 864e5;
   return {
+    cells: events.reduce((s, e) => s + Number(e.meta?.cells || 0), 0),
+    aiReplies: events.filter(e => e.kind === "ai").length,
     users: users.length,
     active24h: users.filter(u => Date.parse(u.last_seen) > dayAgo).length,
     stars: users.reduce((s, u) => s + u.stars_earned, 0),
     axf: users.reduce((s, u) => s + Number(u.axf_minted), 0),
     points: users.reduce((s, u) => s + Number(u.ai_points), 0),
-    messages: events.length,
+    messages: events.filter(e => e.kind === "msg" || e.kind === "cmd").length,
     chars: events.reduce((s, e) => s + e.chars, 0),
   };
 }
@@ -135,4 +137,26 @@ async function saveAutopilotReport(report) {
   if (id) await setData(id, "autopilot_report", JSON.stringify(report));
 }
 
-module.exports = { touchUser, logEvent, settleStars, setData, getData, myOverview, deleteMe, isAdmin, adminStats, adminId, saveAutopilotReport, KEY_RE };
+const REFERRAL_POINTS = 10;
+
+// Only brand-new users (no prior events) can be credited to a referrer, once.
+async function setReferrer(uid, referrerId) {
+  const id = idOf(uid);
+  const ref = idOf(referrerId);
+  if (id === ref) return false;
+  const [referrer] = await rest(`tg_users?tg_id=eq.${ref}&select=tg_id`);
+  if (!referrer) return false;
+  const prior = await rest(`tg_events?tg_id=eq.${id}&select=id&limit=1`);
+  if (prior.length) return false;
+  const updated = await rest(`tg_users?tg_id=eq.${id}&referred_by=is.null`, {
+    method: "PATCH",
+    prefer: "return=representation",
+    body: { referred_by: ref },
+  });
+  if (!updated.length) return false;
+  await logEvent(id, "joined_via_ref", { meta: { referrer: ref } });
+  await logEvent(ref, "referral", { points: REFERRAL_POINTS, meta: { referee: id } });
+  return true;
+}
+
+module.exports = { rest, setReferrer, REFERRAL_POINTS, touchUser, logEvent, settleStars, setData, getData, myOverview, deleteMe, isAdmin, adminStats, adminId, saveAutopilotReport, KEY_RE };

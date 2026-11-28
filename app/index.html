@@ -47,6 +47,9 @@
     .bottom-nav { position: fixed; left: 0; right: 0; bottom: 0; display: flex; background: #0b111e; border-top: 1px solid var(--border); padding: 0.4rem 0.25rem calc(0.4rem + env(safe-area-inset-bottom)); z-index: 20; }
     .bottom-nav button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.15rem; background: none; border: none; color: var(--muted); font-family: monospace; font-size: 0.7rem; cursor: pointer; padding: 0.3rem 0; }
     .bottom-nav button[aria-current="page"] { color: var(--primary); font-weight: bold; }
+    .bottom-nav button { min-width: 0; font-size: 0.6rem; padding: 0.25rem 0; }
+    .bottom-nav button .icon { width: 18px; height: 18px; }
+    .bottom-nav .mts-label { font-size: 0.7rem; }
 
     .list { display: flex; flex-direction: column; gap: 0.4rem; }
     .list-row { display: flex; justify-content: space-between; gap: 0.5rem; background: #0b111e; border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem; font-size: 0.82rem; }
@@ -188,6 +191,7 @@
       <p id="wallet-banner" class="ok" style="font-weight: bold;"></p>
       <button id="app-unified-btn" class="btn">Telegram & Wallet synchronisieren</button>
       <div id="ton-connect-root" style="display:none;"></div>
+      <button class="btn btn-ghost" type="button" onclick="openAirdrop()"><svg class="icon" aria-hidden="true"><use href="#i-rocket"/></svg> AirDrop · TLPFG Launches</button>
     </div>
 
     <div class="card">
@@ -243,6 +247,25 @@
         <button class="btn btn-sell" type="button" onclick="quickTrade('sell')">Verkaufen</button>
       </div>
     </div>
+    <div class="card" aria-labelledby="perp-title">
+      <h3 id="perp-title">Perpetual Futures · KI-Trader</h3>
+      <p class="muted" style="margin-top:0;">Die KI liest den Chart oben und gibt ein Signal (Long, Short oder Halten) mit Hebel bis 5x. Im Autopilot prüft sie alle 15 Minuten neu. Die Order läuft über Storm Trade und wird immer von deiner Wallet signiert.</p>
+      <div class="switch" role="group" aria-label="KI-Trader Modus">
+        <button type="button" id="perp-once" aria-pressed="false" onclick="runAiTrader()">Einmal analysieren</button>
+        <button type="button" id="perp-auto" aria-pressed="false" onclick="toggleAiAutopilot()">Autopilot an</button>
+      </div>
+      <div id="perp-signal" class="list" style="margin-top:0.6rem;" aria-live="polite"><p class="muted" style="margin:0;">Noch kein Signal.</p></div>
+      <a class="btn btn-ghost" id="perp-open" href="https://app.storm.trade/" target="_blank" rel="noopener noreferrer">Storm Trade öffnen (echte Order)</a>
+      <h4 style="margin:1rem 0 0.4rem;">Paper-Trading · 1.000 $ Spielgeld</h4>
+      <p class="muted" style="margin-top:0;">Teste das KI-Signal ohne Risiko: Einstieg und Ausstieg zum echten Live-Kurs, Gewinn und Verlust werden gespeichert. Ab kleinem Einsatz nach oben kämpfen.</p>
+      <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+        <label for="paper-margin" class="muted">Einsatz $</label>
+        <input id="paper-margin" type="number" min="1" step="1" value="10" inputmode="decimal" style="width:6rem;">
+        <button type="button" class="btn" onclick="paperFromSignal()">Signal als Position öffnen</button>
+      </div>
+      <p id="paper-balance" class="muted" style="margin:0.6rem 0 0;">Kontostand wird geladen …</p>
+      <div id="paper-list" class="list" style="margin-top:0.4rem;" aria-live="polite"></div>
+    </div>
     <div class="card">
       <h3>Swap</h3>
       <p class="muted">Swap über STON.fi DEX v2. TON-Swaps: 1 % Plattform-Gebühr on-chain an den TGRAM Vault. Jetton-Swaps (NEC/BBC/AXF): die Plattform-Gebühr übernimmt @toncoing_bot.</p>
@@ -286,7 +309,7 @@
       <div class="major-stat">PUNKTE: <strong id="major-points">0</strong></div>
       <div class="muted" id="major-hint">Punkte = On-Chain-Transaktionen + Mining-XP</div>
       <div class="major-actions">
-        <button class="btn" type="button" onclick="showTab('staking')">Boost (Mining)</button>
+        <button class="btn" type="button" onclick="showTab('mining')">Boost (Mining)</button>
         <a class="btn btn-ghost" id="major-invite" target="_blank" rel="noopener noreferrer" href="https://t.me/share/url?url=https%3A%2F%2Ft.me%2Ftoncoing_bot">Freunde einladen</a>
       </div>
     </div>
@@ -344,6 +367,27 @@
         <div class="list-row"><span>github.ton: Wallet-Core, PRAIAI</span><a href="https://rfof-network.github.io/rfof-network.github.ton/" target="_blank" rel="noopener noreferrer">Seite</a></div>
       </div>
     </div>
+    <div class="card" id="tlpfg-launches" aria-labelledby="launches-title">
+      <h3 id="launches-title">TLPFG Launches · Paralleler DEX</h3>
+      <p class="muted" style="margin-top:0;">Jeder über TLPFG gelaunchte Öko-Token handelt ab dem Start auf STON.fi. Ab 10 000 $ Liquidität wird er zusätzlich auf DeDust gebracht. Liquidität live von GeckoTerminal.</p>
+      <div class="list" aria-label="Pool-Aufteilung">
+        <div class="list-row"><span>Ausschüttung an Nutzer</span><strong>25 %</strong></div>
+        <div class="list-row"><span>Für immer gesperrt</span><strong>25 %</strong></div>
+        <div class="list-row"><span>Liquidität auf STON.fi</span><strong>25 %</strong></div>
+        <div class="list-row"><span>Treasury / Vault</span><strong>25 %</strong></div>
+      </div>
+      <div class="list" id="launch-list" style="margin-top:0.6rem;" aria-live="polite"><p class="muted" style="margin:0;">Lade Launches …</p></div>
+      <form id="launch-register" onsubmit="event.preventDefault(); registerLaunch();" style="margin-top:0.8rem;">
+        <h3 style="margin:0 0 0.5rem;">Gelaunchten Jetton eintragen</h3>
+        <input id="lr-address" required placeholder="Jetton-Master-Adresse (EQ… / UQ…)" aria-label="Jetton-Master-Adresse" style="margin-bottom:0.5rem;" />
+        <div class="input-group">
+          <input id="lr-name" required minlength="2" maxlength="40" placeholder="Token-Name" aria-label="Token-Name" />
+          <input id="lr-symbol" required maxlength="8" pattern="[A-Za-z0-9]{1,8}" placeholder="SYMBOL" aria-label="Symbol" style="max-width:8rem; text-transform:uppercase;" />
+        </div>
+        <button class="btn" type="submit">Eintragen</button>
+        <p id="lr-result" class="muted" aria-live="polite" style="margin:0.4rem 0 0;"></p>
+      </form>
+    </div>
     </div>
   </section>
 
@@ -355,7 +399,8 @@
         <input id="browser-url" type="text" inputmode="url" autocomplete="off" placeholder="Adresse oder Suche (z. B. tonviewer.com)" aria-label="Adresse oder Suchbegriff" />
         <button class="btn" type="submit" style="max-width:7rem; margin:0;">Öffnen</button>
       </div>
-      <div class="list" id="browser-quick" style="margin-top:0.6rem;" aria-label="Schnellzugriff"></div>
+      <p class="muted" style="margin:0.8rem 0 0;">Genutzte TON-Tools: TGRAM baut auf diesen Protokollen auf und ergänzt nur, was sie noch nicht bieten. Danke an alle Teams.</p>
+      <div class="list" id="browser-quick" aria-label="Genutzte TON-Tools"></div>
     </form>
     <div class="card embed hidden" id="browser-pane">
       <div class="embed-bar"><span id="browser-current" class="addr" style="margin:0;"></span><a id="browser-external" target="_blank" rel="noopener noreferrer">Extern öffnen</a></div>
@@ -365,9 +410,9 @@
   </section>
 
   <!-- ================= STAKING ================= -->
-  <section id="view-staking" data-view class="hidden" aria-label="Staking und Mining">
+  <section id="view-staking" data-view class="hidden" aria-label="Staking">
     <div class="card">
-      <h3>Staking & Mining</h3>
+      <h3>Staking</h3>
       <div class="switch" role="group" aria-label="Netzwerk">
         <button type="button" id="net-mainnet" aria-pressed="true" onclick="setNetwork('mainnet')">Mainnet</button>
         <button type="button" id="net-testnet" aria-pressed="false" onclick="setNetwork('testnet')">Testnet</button>
@@ -390,11 +435,18 @@
       <button class="btn" type="button" onclick="executeStake()">STON.fi Pools öffnen</button>
     </div>
     <div class="card">
-      <h3>Mining · XP Vault (AXF)</h3>
-      <p class="warn" style="font-size:0.85rem; margin-top:0;">Vorschau: Es werden keine Vermögenswerte gesperrt oder Mining-Erträge ausgezahlt.</p>
-      <div class="token-balance"><span>XP Level:</span><span id="xp-level" class="ok">1</span></div>
-      <div class="token-balance"><span>AXF in Wallet:</span><span id="vault-bal">–</span></div>
-      <button class="btn" type="button" onclick="claimVault()">XP-Vorschau erhöhen</button>
+      <h3>STON.fi Staking (STON → GEMSTON)</h3>
+      <p class="muted" style="margin-top:0;">Offizielles STON-Staking von STON.fi. Deine Wallet signiert dort, TGRAM hält keine Mittel.</p>
+      <a class="btn" href="https://app.ston.fi/staking" target="_blank" rel="noopener noreferrer">Bei STON.fi staken</a>
+    </div>
+  </section>
+
+  <!-- ================= MINING ================= -->
+  <section id="view-mining" data-view class="hidden" aria-label="Mining">
+    <div class="card">
+      <h3>Liquidity Mining · STON.fi Farms</h3>
+      <p class="muted" style="margin-top:0;">Live von STON.fi: aktive Farms mit APY und gesperrter Liquidität. Liquidität bereitstellen, LP-Token in der Farm sperren, Rewards erhalten.</p>
+      <div class="list" id="farm-list" aria-live="polite"><p class="muted" style="margin:0;">Lade Farms …</p></div>
     </div>
     <div class="card">
       <h3>Jettons & LP-Anteile</h3>
@@ -479,6 +531,14 @@
         <a class="chip" href="https://docs.ton.org/develop/smart-contracts/fees" target="_blank" rel="noopener noreferrer">TON-Gebühren</a>
       </div>
     </div>
+    <div class="card">
+      <h3>XP Vault · AXF und NEC</h3>
+      <p class="warn" style="font-size:0.85rem; margin-top:0;">Vorschau: Es werden keine Vermögenswerte gesperrt oder XP-Erträge ausgezahlt.</p>
+      <div class="token-balance"><span>XP Level:</span><span id="xp-level" class="ok">1</span></div>
+      <div class="token-balance"><span>AXF in Wallet:</span><span id="vault-bal">–</span></div>
+      <div class="token-balance"><span>NEC in Wallet:</span><span id="mts-nec">–</span></div>
+      <button class="btn" type="button" onclick="claimVault()">XP-Vorschau erhöhen</button>
+    </div>
   </section>
 
   <section id="view-docs" data-view class="hidden" aria-label="Docs und Bauplan">
@@ -562,7 +622,8 @@
     <button type="button" data-nav="dex" onclick="showTab('dex')"><svg class="icon"><use href="#i-chart"/></svg>Trading</button>
     <button type="button" data-nav="tc" onclick="showTab('tc')" aria-label="TC TGRAM Copilot"><svg class="icon"><use href="#i-bot"/></svg>TC</button>
     <button type="button" data-nav="launchpad" onclick="showTab('launchpad')"><svg class="icon"><use href="#i-rocket"/></svg>TLPFG</button>
-    <button type="button" data-nav="staking" onclick="showTab('staking')"><svg class="icon"><use href="#i-coins"/></svg>Mining</button>
+    <button type="button" data-nav="staking" onclick="showTab('staking')"><svg class="icon"><use href="#i-coins"/></svg>Stake</button>
+    <button type="button" data-nav="mining" onclick="showTab('mining')"><svg class="icon"><use href="#i-chart"/></svg>Mine</button>
     <button type="button" data-nav="browser" onclick="showTab('browser')"><svg class="icon"><use href="#i-globe"/></svg>Browser</button>
     <button type="button" data-nav="docs" onclick="showTab('docs')"><svg class="icon"><use href="#i-book"/></svg>Docs</button>
   </nav>
@@ -624,14 +685,40 @@
     const short = a => a ? a.slice(0, 6) + "..." + a.slice(-4) : "";
 
     // --- V4.1 Navigation ---
-    const VIEWS = ['home', 'dex', 'tc', 'launchpad', 'staking', 'browser', 'docs', 'verlauf', 'profil', 'stars'];
+    const VIEWS = ['home', 'dex', 'tc', 'launchpad', 'staking', 'mining', 'browser', 'docs', 'verlauf', 'profil', 'stars'];
     const EXT_API = TGRAM_API.replace(/\/copilot$/, '/extension');
     const BROWSER_QUICK = [
-      ['Tonviewer', 'https://tonviewer.com'],
-      ['STON.fi', 'https://app.ston.fi'],
-      ['TON-Coin dApp', 'https://rfof-network.github.io/TON-Coin/'],
-      ['github.ton', 'https://rfof-network.github.io/rfof-network.github.ton/'],
-      ['TON Docs', 'https://docs.ton.org'],
+      ['Handel & Liquidität', [
+        ['STON.fi', 'https://app.ston.fi', 'Swaps, Liquidity Pools und Farms (Mining-Tab)'],
+        ['Omniston', 'https://omniston.ston.fi', 'Beste Route über alle Pools hinweg'],
+        ['DeDust', 'https://dedust.io', 'Zweiter DEX für TLPFG-Coins ab 10.000 $'],
+        ['Storm Trade', 'https://app.storm.trade', 'Perpetual Futures für echte KI-Orders'],
+      ]],
+      ['Staking', [
+        ['Tonstakers', 'https://app.tonstakers.com', 'Liquid Staking: TON zu tsTON'],
+      ]],
+      ['Wallet & Daten', [
+        ['Tonkeeper', 'https://tonkeeper.com', 'Wallet für TON Connect'],
+  ['Tonviewer', 'https://tonviewer.com', 'Transaktionen und Contracts prüfen'],
+  ['TON Center', 'https://toncenter.com', 'RPC für Kontostände und Vault'],
+  ['TON API', 'https://tonapi.io', 'Jettons, Kontostatus und Events'],
+  ['TON Console', 'https://tonconsole.com', 'API-Keys, Webhooks und Projekt-Verwaltung'],
+  ['Telegram', 'https://core.telegram.org/bots/webapps', 'Mini-App-Plattform, Bot und Stars'],
+  ]],
+  ['Explorer & Analyse', [
+  ['Tonscan', 'https://tonscan.org', 'Zweiter Explorer für Tx-Nachweise'],
+  ['TON Explorer', 'https://explorer.toncoin.org', 'Offizieller Explorer der TON Foundation'],
+  ['TON Verifier', 'https://verifier.ton.org', 'Contract-Quellcode öffentlich verifizieren'],
+  ['DYOR', 'https://dyor.io', 'Jetton-Kurse, Holder und Liquidität prüfen'],
+  ['GeckoTerminal', 'https://www.geckoterminal.com/ton/pools', 'Pool-Charts und Volumen auf TON'],
+  ['DexScreener', 'https://dexscreener.com/ton', 'Neue Pairs und Live-Trades auf TON'],
+  ['TON App', 'https://ton.app', 'Verzeichnis aller TON-Apps'],
+  ]],
+      ['RFOF-NETWORK', [
+        ['TON-Coin dApp', 'https://rfof-network.github.io/TON-Coin/', 'Eigene Jetton-Contracts'],
+        ['github.ton', 'https://rfof-network.github.io/rfof-network.github.ton/', 'Projektseite'],
+        ['TON Docs', 'https://docs.ton.org', 'Technische Grundlage'],
+      ]],
     ];
 
     function normalizeUrl(input) {
@@ -656,7 +743,17 @@
     function renderBrowser() {
       const box = document.getElementById('browser-quick');
       if (box.childElementCount) return;
-      box.innerHTML = BROWSER_QUICK.map(([n, u]) => `<div class="list-row"><span>${esc(n)}</span><button class="tab-btn" type="button" data-url="${esc(u)}">Öffnen</button></div>`).join('');
+      box.innerHTML = BROWSER_QUICK.map(([group, items]) =>
+        `<h4 class="muted" style="margin:0.8rem 0 0.3rem; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em;">${esc(group)}</h4>` +
+        items.map(([n, u, why]) => {
+          let host = '';
+          try { host = new URL(u).hostname; } catch {}
+          host = ({ 'app.storm.trade': 'storm.tg', 'app.tonstakers.com': 'tonstakers.com' })[host] || host;
+          const initial = esc(n.charAt(0).toUpperCase());
+          const logo = `<span aria-hidden="true" style="flex:none; position:relative; width:36px; height:36px; border-radius:10px; overflow:hidden; background:var(--surface-2, #1e293b); display:flex; align-items:center; justify-content:center; font-weight:700;">${initial}<img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64" data-alt-src="https://icon.horse/icon/${encodeURIComponent(host)}" onload="if(this.naturalWidth<=16&&this.dataset.altSrc){const a=this.dataset.altSrc;delete this.dataset.altSrc;this.src=a;}" alt="" width="36" height="36" loading="lazy" referrerpolicy="no-referrer" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; background:inherit;" onerror="this.remove()"></span>`;
+          return `<div class="list-row" style="gap:0.75rem;">${logo}<span style="flex:1; min-width:0;"><strong>${esc(n)}</strong><br><span class="muted" style="font-size:0.85rem;">${esc(why)}</span></span><button class="tab-btn" type="button" style="flex:none; width:auto; padding:0.4rem 0.9rem;" data-url="${esc(u)}" aria-label="${esc(n)} öffnen">Öffnen</button></div>`;
+        }).join('')
+      ).join('');
       box.addEventListener('click', e => { const b = e.target.closest('[data-url]'); if (b) browseTo(b.dataset.url); });
     }
 
@@ -691,6 +788,7 @@
     let txCache = [];
     let tradeFilter = 'ALL';
     let chartPair = 'TON';
+    let lastCandles = [];
     const jettons = {};
     const feeRate = sym => sym === 'TON' ? DEX_FEE : 0;
 
@@ -725,14 +823,15 @@
       if (!VIEWS.includes(name)) name = 'home';
       document.querySelectorAll('[data-view]').forEach(v => v.classList.toggle('hidden', v.id !== 'view-' + name));
       document.querySelectorAll('[data-nav]').forEach(b => { if (b.dataset.nav === name) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
-      if (name === 'staking' && userAddress) loadJettons();
+      if ((name === 'staking' || name === 'mining' || name === 'stars') && userAddress) loadJettons();
+      if (name === 'mining') loadFarms();
       if (name === 'verlauf' && userAddress) loadHistory().then(loadAccountAnalysis);
-      if (name === 'dex') { loadPools(); updateDexFee(); loadChart(chartPair); if (userAddress && !txCache.length) loadHistory(); }
+      if (name === 'dex') { loadPools(); updateDexFee(); loadChart(chartPair); paperCall({ action: 'list' }); if (userAddress && !txCache.length) loadHistory(); }
       if (name === 'tc') { initCopilot(); setTimeout(() => document.getElementById('chat-input').focus(), 50); }
       if (name === 'docs') { renderPlan(); runGuardian(); }
       if (name === 'stars') loadStars();
       if (name === 'browser') renderBrowser();
-      if (name === 'launchpad') { loadExtension(); renderMajor(); if (userAddress && !txCache.length) loadHistory().then(renderMajor); }
+      if (name === 'launchpad') { loadExtension(); loadLaunches(); renderMajor(); if (userAddress && !txCache.length) loadHistory().then(renderMajor); }
       window.scrollTo(0, 0);
     }
 
@@ -866,6 +965,7 @@
       const bal = s => { const t = ecoJetton(s); return t ? formatAmount(t.balance) : "0"; };
       document.getElementById("stake-bal").textContent = bal("NEC");
       document.getElementById("vault-bal").textContent = bal("AXF");
+      document.getElementById("mts-nec").textContent = bal("NEC");
       const explorer = m => `https://tonviewer.com/${encodeURIComponent(m)}`;
       const row = (s, t) => `<div class="list-row"><span>${esc(s)} <span class="muted">${esc(t.name)}</span></span><span><a href="${explorer(t.master)}" target="_blank" rel="noopener noreferrer" style="color:var(--primary)">${esc(formatAmount(t.balance))}</a></span></div>`;
       const eco = Object.keys(ECO_ALIASES).map(s => {
@@ -1008,6 +1108,7 @@
           candles = (o.data.attributes.ohlcv_list || []).map(([t, op, h, l, c]) => ({ time: t, open: op, high: h, low: l, close: c })).reverse();
         }
         candleSeries.setData(candles);
+        lastCandles = candles;
         chartApi.timeScale().fitContent();
         last.textContent = candles.length ? candles[candles.length - 1].close.toPrecision(5) : '–';
       } catch (e) { candleSeries.setData([]); label.textContent = pair + ': keine Kursdaten verfügbar'; last.textContent = '–'; }
@@ -1044,6 +1145,117 @@
         `<div class="list-row"><span>4. Pool für ${esc(symbol)}/TON</span><a href="https://app.ston.fi/pools" target="_blank" rel="noopener noreferrer">STON.fi</a></div>`,
       ];
       document.getElementById('lp-result').innerHTML = steps.join('') + `<p class="muted" style="margin:0;">Supply ${esc(meta.total_supply)} ${esc(symbol)} · Jetton-Gebühren übernimmt @toncoing_bot.</p>`;
+    }
+
+    const usd = n => '$' + Math.round(Number(n) || 0).toLocaleString('de-DE');
+
+    function openAirdrop() {
+      showTab('launchpad');
+      setPane('lp', 'launch');
+      setTimeout(() => document.getElementById('tlpfg-launches').scrollIntoView({ behavior: 'smooth', block: 'start' }), 120);
+    }
+
+    async function loadLaunches() {
+      const box = document.getElementById('launch-list');
+      try {
+        const j = await (await fetch(API_BASE + '/launches')).json();
+        if (!j.ok) throw new Error(j.error || 'Fehler');
+        box.innerHTML = j.launches.length ? j.launches.map(l => {
+          const ston = `<a href="https://app.ston.fi/swap?ft=TON&tt=${encodeURIComponent(l.jetton_address)}" target="_blank" rel="noopener noreferrer">STON.fi</a>`;
+          const dedust = l.dedustReady
+            ? `<a href="https://dedust.io/swap/TON/${encodeURIComponent(l.jetton_address)}" target="_blank" rel="noopener noreferrer">DeDust</a>`
+            : `<span class="muted">DeDust ab ${usd(j.dedustMinUsd)}</span>`;
+          return `<div class="list-row"><span><strong>${esc(l.symbol)}</strong> ${esc(l.name)}<br><span class="muted">Liquidität ${usd(l.liquidityUsd.total)}</span></span><span style="text-align:right">${ston}<br>${dedust}</span></div>`;
+        }).join('') : '<p class="muted" style="margin:0;">Noch keine TLPFG-Launches eingetragen.</p>';
+      } catch (e) { box.innerHTML = `<p class="muted" style="margin:0;">Launches nicht erreichbar: ${esc(e.message)}</p>`; }
+    }
+
+    async function registerLaunch() {
+      const out = document.getElementById('lr-result');
+      const initData = window.Telegram?.WebApp?.initData || '';
+      if (!initData) { out.textContent = 'Nur in Telegram: öffne die Mini App über @toncoing_bot.'; return; }
+      const v = id => document.getElementById(id).value.trim();
+      out.textContent = 'Speichere …';
+      try {
+        const j = await (await fetch(API_BASE + '/launches', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ initData, address: v('lr-address'), name: v('lr-name'), symbol: v('lr-symbol') }) })).json();
+        if (!j.ok) throw new Error(j.error === 'invalid_launch' ? 'Adresse, Name oder Symbol ungültig' : j.error);
+        out.textContent = 'Eingetragen. Handelbar ab sofort auf STON.fi.';
+        document.getElementById('launch-register').reset();
+        loadLaunches();
+      } catch (e) { out.textContent = 'Fehler: ' + e.message; }
+    }
+
+    let farmsLoaded = false;
+    async function loadFarms() {
+      if (farmsLoaded) return;
+      const box = document.getElementById('farm-list');
+      try {
+        const d = await (await fetch('https://api.ston.fi/v1/farms')).json();
+        const farms = (d.farm_list || [])
+          .filter(f => f.status === 'operational' && (f.rewards || []).some(r => r.status === 'active') && Number(f.locked_total_lp_usd) > 1000)
+          .sort((a, b) => Number(b.locked_total_lp_usd) - Number(a.locked_total_lp_usd))
+          .slice(0, 20);
+        box.innerHTML = farms.length ? farms.map(f => {
+          const name = (f.meta?.name || 'Farm').replace(/ Farm NFT collection$/i, '');
+          return `<div class="list-row"><span><strong>${esc(name)}</strong><br><span class="muted">APY ${(Number(f.apy) * 100).toFixed(1)} % · TVL ${usd(f.locked_total_lp_usd)}</span></span><a href="https://app.ston.fi/pools/${encodeURIComponent(f.pool_address)}" target="_blank" rel="noopener noreferrer">Farmen</a></div>`;
+        }).join('') : '<p class="muted" style="margin:0;">Gerade keine aktiven Farms.</p>';
+        farmsLoaded = true;
+      } catch (e) { box.innerHTML = `<p class="muted" style="margin:0;">STON.fi Farms nicht erreichbar.</p>`; }
+    }
+
+    let aiAutoTimer = null;
+    let lastSignal = null;
+    const PAPER_ERRORS = { insufficient_balance: 'Nicht genug Spielgeld.', too_many_open: 'Maximal 5 offene Positionen.', no_price: 'Kein Live-Kurs verfügbar.', bad_master: 'Für dieses Paar gibt es noch keinen On-Chain-Kurs.' };
+    async function paperCall(payload) {
+      const initData = window.Telegram?.WebApp?.initData || '';
+      const box = document.getElementById('paper-list');
+      if (!initData) { document.getElementById('paper-balance').textContent = 'Paper-Trading läuft nur in Telegram (@toncoing_bot).'; return; }
+      try {
+        const j = await (await fetch(API_BASE + '/paper-trade', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ initData, ...payload }) })).json();
+        if (!j.ok) throw new Error(PAPER_ERRORS[j.error] || j.error);
+        const fmt = n => (n >= 0 ? '+' : '') + n.toFixed(2) + ' $';
+        document.getElementById('paper-balance').textContent = `Frei: ${j.balance_usd.toFixed(2)} $ · Realisiert: ${fmt(j.realized_usd)}`;
+        box.innerHTML = j.positions.length ? j.positions.slice(0, 10).map(p => {
+          const pnl = p.closed_at ? Number(p.pnl_usd) : p.live_pnl_usd;
+          const cls = pnl == null ? 'muted' : pnl >= 0 ? 'ok' : 'bad';
+          const action = p.closed_at ? '<span class="muted">geschlossen</span>' : `<button type="button" class="btn btn-ghost" onclick="paperCall({action:'close',id:${Number(p.id)}})">Schließen</button>`;
+          return `<div class="list-row"><span><strong>${esc(p.side)}</strong> ${esc(p.pair)} · ${p.leverage}x · ${Number(p.margin_usd).toFixed(2)} $<br><span class="${cls}">${pnl == null ? '–' : fmt(pnl)}</span></span>${action}</div>`;
+        }).join('') : '<p class="muted" style="margin:0;">Noch keine Positionen.</p>';
+      } catch (e) { box.innerHTML = `<p class="muted" style="margin:0;">Paper-Trading: ${esc(e.message)}</p>`; }
+    }
+    function paperFromSignal() {
+      if (!lastSignal || lastSignal.signal === 'HOLD') { document.getElementById('paper-balance').textContent = 'Erst ein LONG- oder SHORT-Signal der KI holen.'; return; }
+      const pair = lastSignal.pair;
+      const master = pair === 'TON' ? null : ((jettons[pair] || (ECO_ALIASES[pair] && ecoJetton(pair)))?.master || dexAssets.get(pair)?.addr || '');
+      paperCall({ action: 'open', pair, master, side: lastSignal.signal, leverage: lastSignal.leverage, margin: Number(document.getElementById('paper-margin').value) });
+    }
+    async function runAiTrader() {
+      const out = document.getElementById('perp-signal');
+      const initData = window.Telegram?.WebApp?.initData || '';
+      if (!initData) { out.innerHTML = '<p class="muted" style="margin:0;">Der KI-Trader läuft nur in Telegram: öffne die Mini App über @toncoing_bot.</p>'; return false; }
+      if (lastCandles.length < 10) { out.innerHTML = `<p class="muted" style="margin:0;">Für ${esc(chartPair)} gibt es noch zu wenige Kerzen.</p>`; return false; }
+      out.innerHTML = '<p class="muted" style="margin:0;">KI analysiert den Chart …</p>';
+      try {
+        const candles = lastCandles.slice(-48).map(c => [c.time, c.open, c.high, c.low, c.close]);
+        const j = await (await fetch(API_BASE + '/ai-trader', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ initData, pair: chartPair, candles }) })).json();
+        if (!j.ok) throw new Error(j.error);
+        lastSignal = j;
+        const cls = j.signal === 'LONG' ? 'ok' : j.signal === 'SHORT' ? 'bad' : 'muted';
+        out.innerHTML = `<div class="list-row"><span><strong class="${cls}">${esc(j.signal)}</strong> ${esc(j.pair)} · ${j.leverage}x · ${j.confidence} %<br><span class="muted">${esc(j.reason)}</span></span><span class="muted">${new Date().toLocaleTimeString('de-DE')}</span></div>`;
+        return true;
+      } catch (e) { out.innerHTML = `<p class="muted" style="margin:0;">KI-Signal fehlgeschlagen: ${esc(e.message)}</p>`; return false; }
+    }
+
+    async function toggleAiAutopilot() {
+      const btn = document.getElementById('perp-auto');
+      if (aiAutoTimer) {
+        clearInterval(aiAutoTimer); aiAutoTimer = null;
+        btn.setAttribute('aria-pressed', 'false'); btn.textContent = 'Autopilot an';
+        return;
+      }
+      if (!(await runAiTrader())) return;
+      aiAutoTimer = setInterval(() => loadChart(chartPair).then(runAiTrader), 15 * 60 * 1000);
+      btn.setAttribute('aria-pressed', 'true'); btn.textContent = 'Autopilot aus';
     }
 
     // STON.fi asset query (JSON body). Tradable = has liquidity, or held by the user, minus flagged scams.
@@ -1350,7 +1562,7 @@
       const plan = document.querySelectorAll('#plan-list .plan-step').length;
       const missing = VIEWS.filter(v => !document.getElementById('view-' + v));
       return [
-        { name: 'UI: Navigation', ok: nav === 7, detail: nav + ' Tabs' },
+        { name: 'UI: Navigation', ok: nav === 9, detail: nav + ' Tabs' },
         { name: 'UI: Bauplan angezeigt', ok: plan > 0, detail: plan + ' Schritte' },
         { name: 'UI: alle Ansichten vorhanden', ok: !missing.length, detail: missing.length ? 'fehlt: ' + missing.join(', ') : VIEWS.length + ' Ansichten' },
       ];
@@ -1520,7 +1732,7 @@
       receive: { d: 'Eigene Adresse', run: () => openReceive() },
       swap: { d: '/swap TON NEC 1', run: a => { const [f, t, n] = a.split(/\s+/); showTab('dex'); setTimeout(() => { if (f) document.getElementById('dex-from').value = f.toUpperCase(); if (t) document.getElementById('dex-to').value = t.toUpperCase(); if (n) document.getElementById('dex-amount').value = n; updateDexFee(); }, 50); } },
       verlauf: { d: 'Verlauf & Analyse', run: () => showTab('verlauf') },
-      mining: { d: 'Mining öffnen', run: () => showTab('staking') },
+      mining: { d: 'Mining öffnen', run: () => showTab('mining') },
       launch: { d: 'TLPFG öffnen', run: () => showTab('launchpad') },
       repo: { d: '/repo owner/name – Repo als Kontext', run: a => loadRepo(a) },
       file: { d: '/file pfad [frage] – Datei aus Repo', run: a => loadRepoFile(a) },

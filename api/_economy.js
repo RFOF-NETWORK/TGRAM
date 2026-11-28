@@ -21,6 +21,8 @@ const PRICING = {
     game: Number(process.env.TGRAM_COST_GAME || 0),
   },
   dexFeePercent: 1,          // 1 % platform fee on DEX swaps
+  // Every pool inflow is split into four equal quarters (sum = 100 %).
+  poolSplitPercent: { payout: 25, lockedForever: 25, stonfiLiquidity: 25, treasury: 25 },
 };
 
 const usage = new Map(); // per-instance usage ledger; plug a DB here for multi-instance persistence
