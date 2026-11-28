@@ -1,15 +1,38 @@
 <!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><title>Telegram Login Callback</title></head>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Telegram Login | TGRAM</title>
+  <style>
+    body { background: #0b0f17; color: #e2e8f0; font-family: monospace; padding: 1.5rem; max-width: 860px; margin: auto; }
+    .card { background: #131a29; border: 1px solid #263248; border-radius: 10px; padding: 1.4rem; }
+    h1 { color: #38bdf8; margin-top: 0; font-size: 1.3rem; }
+    a { display: inline-block; margin-top: 1rem; color: #38bdf8; }
+    .ok { color: #4ade80; }
+    .err { color: #f87171; }
+  </style>
+</head>
 <body>
-    <h1>Login erfolgreich!</h1>
-    <p id="status">Verarbeite Daten...</p>
-    <script>
-        const params = new URLSearchParams(window.location.search);
-        const data = Object.fromEntries(params.entries());
-        document.getElementById('status').textContent = "Empfangene Daten: " + JSON.stringify(data, null, 2);
-        // Optional: Sende die Daten an dein Backend zur Validierung
-        // fetch('https://dein-backend.com/validate', { method: 'POST', body: JSON.stringify(data) });
-    </script>
+  <main class="card">
+    <h1>Telegram Login</h1>
+    <p id="status" aria-live="polite">Verarbeite Daten...</p>
+    <a href="./index.html">Zurück zu TGRAM</a>
+    <a href="https://t.me/Satoramy" target="_blank" rel="noopener noreferrer">Chat mit @Satoramy öffnen</a>
+  </main>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const statusEl = document.getElementById('status');
+
+    if (params.get('id') && params.get('hash')) {
+      const name = params.get('username') ? '@' + params.get('username') : (params.get('first_name') || params.get('id'));
+      statusEl.className = 'ok';
+      statusEl.textContent = 'Angemeldet als ' + name;
+      sessionStorage.setItem('tgram_tg_user', JSON.stringify(Object.fromEntries(params.entries())));
+    } else {
+      statusEl.className = 'err';
+      statusEl.textContent = 'Keine Telegram-Login-Daten empfangen.';
+    }
+  </script>
 </body>
 </html>

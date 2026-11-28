@@ -11,6 +11,9 @@
     .badge { display: inline-block; background: #1e293b; padding: 0.3rem 0.6rem; border-radius: 4px; margin: 0.2rem 0.2rem 0.6rem 0; font-size: 0.85rem; }
     .unified-btn { background: linear-gradient(90deg, #229ed9, #0088cc); color: #fff; padding: 0.9rem 1.2rem; border-radius: 10px; border: none; font-family: monospace; font-weight: bold; font-size: 0.95rem; cursor: pointer; width: 100%; margin-top: 0.8rem; }
     .btn-sec { background: #1e293b; color: #38bdf8; padding: 0.7rem 1rem; border-radius: 8px; border: 1px solid #334155; font-family: monospace; cursor: pointer; width: 100%; margin-top: 0.6rem; }
+    .tg-link { display: block; text-align: center; text-decoration: none; background: linear-gradient(90deg, #229ed9, #0088cc); color: #fff; padding: 0.8rem 1rem; border-radius: 10px; font-weight: bold; }
+    .tg-link-sec { background: #1e293b; color: #38bdf8; border: 1px solid #334155; }
+    .tg-link:focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
   </style>
 </head>
 <body>
@@ -28,7 +31,39 @@
     <p id="wallet-status" style="margin-top:1rem; color:#94a3b8;">Status: Lade SDKs...</p>
   </div>
 
+  <section class="card" aria-labelledby="tg-connect-title">
+    <h2 id="tg-connect-title" style="color:#38bdf8; margin-top:0; font-size:1.15rem;">Telegram Connect</h2>
+    <p style="color:#94a3b8; margin-top:0;">Direkt mit <strong>@Satoramy</strong> auf Telegram verbinden:</p>
+    <nav aria-label="Telegram Links" style="display:flex; flex-direction:column; gap:0.6rem;">
+      <a id="tg-chat-link" class="tg-link" href="https://t.me/Satoramy" target="_blank" rel="noopener noreferrer">Chat mit @Satoramy öffnen</a>
+      <a id="tg-miniapp-link" class="tg-link tg-link-sec" href="https://t.me/Satoramy?startapp=tgram" target="_blank" rel="noopener noreferrer">TGRAM Mini App in Telegram starten</a>
+    </nav>
+    <div style="margin-top:1rem;">
+      <p style="color:#94a3b8; margin:0 0 0.5rem;">Mit Telegram anmelden:</p>
+      <div id="tg-login-widget" aria-live="polite"></div>
+    </div>
+  </section>
+
   <script>
+    (function mountTelegramLogin() {
+      // Telegram Login requires a @BotFather bot username (not a personal account).
+      const TG_USERNAME = '';
+      if (!TG_USERNAME) {
+        document.getElementById('tg-login-widget').innerHTML = '<p style="color:#fbbf24; font-size:0.85rem; margin:0;">Login-Widget inaktiv: Bot-Benutzername aus @BotFather fehlt. Chat- und Mini-App-Link funktionieren bereits.</p>';
+        return;
+      }
+      const basePath = window.location.pathname.replace(/[^/]*$/, '');
+      const widget = document.createElement('script');
+      widget.async = true;
+      widget.src = 'https://telegram.org/js/telegram-widget.js?22';
+      widget.setAttribute('data-telegram-login', TG_USERNAME);
+      widget.setAttribute('data-size', 'large');
+      widget.setAttribute('data-radius', '10');
+      widget.setAttribute('data-request-access', 'write');
+      widget.setAttribute('data-auth-url', window.location.origin + basePath + 'auth-callback.html');
+      document.getElementById('tg-login-widget').appendChild(widget);
+    })();
+
     function loadScript(src) {
       return new Promise((resolve) => {
         const s = document.createElement('script');
