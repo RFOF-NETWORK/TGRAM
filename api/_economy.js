@@ -153,4 +153,16 @@ async function askAI(prompt) {
   return (await r.text()).trim();
 }
 
-module.exports = { PRICING, balance, charge, paymentLink, askAI, VAULT, ledger, explorerLinks, accountLinks };
+// Latest real transaction of the bot wallet that covers free AI usage.
+let botTxCache = { at: 0, value: null };
+async function botLatestTx() {
+  if (botTxCache.value && Date.now() - botTxCache.at < LEDGER_TTL_MS) return botTxCache.value;
+  const data = await fetchJson(`${TONCENTER}/transactions?account=${encodeURIComponent(VAULT)}&limit=1&sort=desc`);
+  const t = (data.transactions || [])[0];
+  if (!t) return null;
+  const value = { hash: t.hash, utime: t.now, fee: Number(t.total_fees || 0) / 1e9 };
+  botTxCache = { at: Date.now(), value };
+  return value;
+}
+
+module.exports = { PRICING, balance, charge, paymentLink, askAI, VAULT, ledger, explorerLinks, accountLinks, botLatestTx };

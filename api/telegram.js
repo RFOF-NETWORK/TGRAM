@@ -1,6 +1,6 @@
 // @toncoing_bot webhook (Vercel). Set once:
 // https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://tgram-tau.vercel.app/api/telegram&secret_token=<TELEGRAM_WEBHOOK_SECRET>
-const { PRICING, balance, charge, paymentLink, askAI, VAULT, ledger, explorerLinks, accountLinks } = require("./_economy");
+const { PRICING, balance, charge, paymentLink, askAI, VAULT, ledger, explorerLinks, accountLinks, botLatestTx } = require("./_economy");
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || "";
@@ -29,6 +29,16 @@ async function txFooter(subject) {
     return {
       text: `\n\n— Letzte Tx: ${fmt(latest.amount)} ${latest.token} · Netzgebuehr ${fmt(latest.fee)} TON${when ? " · " + when + " UTC" : ""}\nKI-Kosten: ${aiCost}`,
       row: links ? [{ text: "Tonviewer", url: links.tonviewer }, { text: "Tonscan", url: links.tonscan }] : [],
+    };
+  }
+  let bot = null;
+  try { bot = await botLatestTx(); } catch {}
+  const botLinks = bot && explorerLinks(bot.hash);
+  if (botLinks) {
+    const when = bot.utime ? new Date(bot.utime * 1000).toISOString().slice(0, 16).replace("T", " ") : "";
+    return {
+      text: `\n\n— KI-Kosten: ${aiCost}\nBezahlt von der Bot-Wallet · letzte Tx · Netzgebuehr ${fmt(bot.fee)} TON${when ? " · " + when + " UTC" : ""}`,
+      row: [{ text: "Tonviewer", url: botLinks.tonviewer }, { text: "Tonscan", url: botLinks.tonscan }],
     };
   }
   return { text: `\n\n— KI-Kosten: ${aiCost}`, row: [] };
