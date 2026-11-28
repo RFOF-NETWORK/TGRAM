@@ -149,32 +149,46 @@ function paymentLink(subject, ton = 1) {
   return `ton://transfer/${VAULT}?amount=${Math.round(ton * 1e9)}&text=${encodeURIComponent(`TGRAM:${subject}`)}`;
 }
 
-async function askAI(prompt, extension) {
+async function askAI(prompt, extension, opts = {}) {
   const base = "Du bist TGRAM Copilot fuer TON, NEC, BBC und AXF auf der TGRAM Plattform. Antworte kurz und praezise auf Deutsch.";
-  const system = extension?.persona
+  const persona = extension?.persona
     ? `${base}\nDu laeufst als KI-Extension "${extension.name}" eines Nutzers. Persona des Nutzers:\n${extension.persona}`
     : base;
-  const token = process.env.VERCEL_OIDC_TOKEN || process.env.AI_GATEWAY_API_KEY;
+  const system = opts.system || (opts.context ? `${persona}\n${opts.context}` : persona);
+  const token = opts.oidc || process.env.VERCEL_OIDC_TOKEN || process.env.AI_GATEWAY_API_KEY;
+  const messages = [{ role: "system", content: system }, { role: "user", content: prompt }];
   if (token) {
-    try {
-      const r = await fetch("https://ai-gateway.vercel.sh/v1/chat/completions", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          model: process.env.TGRAM_AI_MODEL || "openai/gpt-5-mini",
-          messages: [{ role: "system", content: system }, { role: "user", content: prompt }],
-        }),
-      });
-      if (r.ok) {
-        const d = await r.json();
-        const text = d.choices?.[0]?.message?.content;
-        if (text) return text;
-      }
-    } catch {}
+    const models = [process.env.TGRAM_AI_MODEL || "openai/gpt-5-mini", "google/gemini-2.5-flash", "anthropic/claude-haiku-4.5"];
+    for (const model of models) {
+      try {
+        const r = await fetch("https://ai-gateway.vercel.sh/v1/chat/completions", {
+          method: "POST",
+          headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+          body: JSON.stringify({ model, messages }),
+        });
+        if (r.ok) {
+          const text = (await r.json()).choices?.[0]?.message?.content;
+          if (text) return text;
+        }
+      } catch {}
+    }
   }
-  const r = await fetch("https://text.pollinations.ai/" + encodeURIComponent(`${system} ${prompt}`));
-  return (await r.text()).trim();
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const r = await fetch("https://text.pollinations.ai/openai", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ model: "openai", messages }),
+      });
+      const text = r.ok ? (await r.json()).choices?.[0]?.message?.content : "";
+      if (text && !RATE_LIMIT_TEXT.test(text)) return text.trim();
+    } catch {}
+    await new Promise((done) => setTimeout(done, 4000 * (attempt + 1)));
+  }
+  return "Die KI ist gerade ueberlastet. Bitte schick die Nachricht in ein paar Sekunden noch einmal.";
 }
+
+const RATE_LIMIT_TEXT = /limit reached|rate limit|pollinations\.ai\/?\?ref|get unlimited/i;
 
 // Latest vault transaction, which is not necessarily a payment for AI usage.
 async function botLatestTx() {

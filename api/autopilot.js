@@ -36,6 +36,7 @@ async function notifyAdmin(text) {
 }
 
 module.exports = async (req, res) => {
+  if (req.headers["x-vercel-oidc-token"]) process.env.VERCEL_OIDC_TOKEN = req.headers["x-vercel-oidc-token"];
   if (!authorized(req)) return res.status(401).json({ error: "unauthorized" });
 
   const words = (process.env.BOT_WALLET_MNEMONIC || "").trim().split(/\s+/).filter(Boolean);

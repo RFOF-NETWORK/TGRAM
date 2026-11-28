@@ -93,7 +93,7 @@ async function myOverview(uid) {
     axf: Number(user?.axf_minted || 0),
     points: Number(user?.ai_points || 0),
     since: user?.created_at,
-    keys: keys.map(k => k.key),
+    keys: keys.map(k => k.key).filter(k => !k.startsWith("_")),
     messages: events.length,
     chars: events.reduce((s, e) => s + e.chars, 0),
   };

@@ -12,6 +12,7 @@ async function txInfo(subject) {
 const ALLOWED_ORIGINS = ["https://rfof-network.github.io", "https://tgram-tau.vercel.app"];
 
 module.exports = async (req, res) => {
+  if (req.headers["x-vercel-oidc-token"]) process.env.VERCEL_OIDC_TOKEN = req.headers["x-vercel-oidc-token"];
   const origin = req.headers.origin || "";
   if (ALLOWED_ORIGINS.includes(origin)) res.setHeader("Access-Control-Allow-Origin", origin);
   res.setHeader("Access-Control-Allow-Headers", "content-type");
