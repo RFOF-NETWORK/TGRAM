@@ -43,3 +43,14 @@ bits = 32 + 8 * bytes(UTF-8),  cells = ceil((bytes + 4) / 127)
 ```
 
 Beispiel mit 100 ASCII-Zeichen: rund 0,000129 TON Weiterleitung, plus rund 0,0025 TON Wallet-Gas.
+
+## AXF nur gegen Stars (indirekt)
+
+```
+User schreibt mit KI ──> KI-Punkte (kein AXF, keine Stars)
+User /axf 50 ──> Telegram-Rechnung 50 Stars (XTR) ──> Bot erhaelt Stars
+                     │
+                     └─> Telegram speichert Zahlung (Payload AXF:<id>) = Ledger
+/axf ──> Stand aus getStarTransactions ──> "reserviert" bis AXF_MINTER gesetzt
+AXF-Minter deployed ──> AXF_MINTER setzen ──> Lieferung an TON-Wallet
+```
