@@ -403,10 +403,24 @@
     </div>
   </section>
 
-  <section id="view-stars" data-view class="hidden" aria-label="MTS Majora Telegram Stars">
+  <section id="view-stars" data-view class="hidden" aria-label="MTS: MAJOR und Telegram Stars">
     <div class="card">
-      <h3>MTS · Majora TG Stars</h3>
-      <p class="muted">Live-Stars-Saldo von @toncoing_bot, direkt aus der Telegram Bot Payments API (XTR).</p>
+      <h3>MTS · zwei getrennte Währungen</h3>
+      <p class="muted">MAJOR ist ein Jetton auf der TON-Blockchain und handelbar. Telegram Stars (XTR) sind Telegrams interne Währung für digitale Güter und liegen nicht on-chain. Die beiden werden nie verrechnet oder vermischt.</p>
+    </div>
+    <div class="card">
+      <h3>MAJOR · Jetton auf TON</h3>
+      <div class="mts-balance" style="color:var(--fg)" aria-live="polite"><img src="https://cache.tonapi.io/imgproxy/bnKC81e4nVrK99wRHoO3-LcpA3pl6Q0YqJuUWa5o9z4/rs:fill:200:200:1/g:no/aHR0cHM6Ly9jYWNoZS50b25hcGkuaW8vaW1ncHJveHkvR0syNGcyRk1KeUpyN3YyNE8yV1gyck8wMnRzSjdfNzJacXhsZXh1WG1yYy9yczpmaWxsOjIwMDoyMDA6MS9nOm5vL2FIUjBjSE02THk5dFlXcHZjaTVpYjNRdmFXMWhaMlZ6TDNSaGMydHpMMjFoYW05eVgyeHZaMjh1YzNabi53ZWJw.webp" alt="" width="32" height="32" style="border-radius:50%"><span id="major-price">…</span></div>
+      <p class="muted" id="major-change"></p>
+      <p class="muted" id="major-holding">Wallet verbinden, um deinen MAJOR-Saldo zu sehen.</p>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+        <a class="chip" href="https://tonviewer.com/0:ae3e6d351e576276e439e7168117fd64696fd6014cb90c77b2f2cbaacd4fcc00" target="_blank" rel="noopener noreferrer">MAJOR auf Tonviewer</a>
+        <button class="chip" type="button" onclick="showTab('trading')">MAJOR im DEX handeln</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Telegram Stars (XTR)</h3>
+      <p class="muted">Live-Stars-Saldo von @toncoing_bot, direkt aus der Telegram Bot Payments API.</p>
       <div class="mts-balance" aria-live="polite"><svg class="icon" aria-hidden="true"><use href="#i-star"/></svg><span id="mts-balance">…</span></div>
       <p class="muted" id="mts-earned"></p>
       <button class="btn btn-ghost" type="button" onclick="loadStars(true)">Aktualisieren</button>
@@ -482,7 +496,7 @@
   </section>
 
   <nav class="bottom-nav" aria-label="Hauptnavigation">
-    <button type="button" data-nav="stars" onclick="showTab('stars')" aria-label="MTS Majora Telegram Stars"><svg class="icon"><use href="#i-star"/></svg>MTS</button>
+    <button type="button" data-nav="stars" onclick="showTab('stars')" aria-label="MTS: MAJOR und Telegram Stars"><svg class="icon"><use href="#i-star"/></svg>MTS</button>
     <button type="button" data-nav="home" aria-current="page" onclick="showTab('home')"><svg class="icon"><use href="#i-home"/></svg>Home</button>
     <button type="button" data-nav="dex" onclick="showTab('dex')"><svg class="icon"><use href="#i-chart"/></svg>Trading</button>
     <button type="button" data-nav="tc" onclick="showTab('tc')" aria-label="TC TGRAM Copilot"><svg class="icon"><use href="#i-bot"/></svg>TC</button>
@@ -1148,9 +1162,27 @@
     ];
     const API_BASE = TGRAM_API.replace(/\/copilot$/, '');
     let starsAt = 0, guardianAt = 0;
+    const MAJOR_MASTER = '0:ae3e6d351e576276e439e7168117fd64696fd6014cb90c77b2f2cbaacd4fcc00';
+    async function loadMajor() {
+      const price = document.getElementById('major-price'), change = document.getElementById('major-change'), hold = document.getElementById('major-holding');
+      try {
+        const r = await fetch(`https://tonapi.io/v2/rates?tokens=${MAJOR_MASTER}&currencies=usd,ton`);
+        const p = (await r.json()).rates?.[MAJOR_MASTER];
+        if (!p) throw new Error('kein Kurs');
+        price.textContent = `$${p.prices.USD.toFixed(4)} · ${p.prices.TON.toFixed(4)} TON`;
+        change.textContent = `24 h: ${p.diff_24h?.USD ?? '–'} · 7 Tage: ${p.diff_7d?.USD ?? '–'}`;
+        const mine = Object.values(jettons).find(t => String(t.master).toLowerCase() === MAJOR_MASTER);
+        if (userAddress) hold.textContent = `Dein Saldo: ${formatAmount(mine ? mine.balance : 0)} MAJOR` + (mine ? ` (≈ $${(mine.balance * p.prices.USD).toFixed(2)})` : '');
+      } catch (e) {
+        price.textContent = '–';
+        change.textContent = `MAJOR-Kurs konnte nicht geladen werden: ${e.message}`;
+      }
+    }
+
     async function loadStars(force) {
       if (!force && Date.now() - starsAt < 20000) return;
       starsAt = Date.now();
+      loadMajor();
       const bal = document.getElementById('mts-balance'), list = document.getElementById('mts-list');
       try {
         const r = await fetch(API_BASE + '/stars');

@@ -1,4 +1,4 @@
-// Majora TG Stars (MTS): live Telegram Stars data of @toncoing_bot via the Bot Payments API.
+// Telegram Stars (XTR) of @toncoing_bot via the Bot Payments API. MAJOR is a separate TON jetton, loaded in the frontend.
 // https://core.telegram.org/bots/payments-stars — read-only (getMyStarBalance, getStarTransactions).
 const ALLOWED_ORIGINS = ["https://rfof-network.github.io", "https://tgram-tau.vercel.app"];
 
