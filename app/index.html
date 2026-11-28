@@ -106,6 +106,8 @@
     .plan-bar span { display: block; height: 100%; background: var(--primary); }
     .bottom-nav button[data-nav="stars"] .icon { fill: var(--warn); stroke: var(--warn); }
     .bottom-nav button[data-nav="stars"][aria-current="page"] { color: var(--warn); }
+    .bottom-nav button[data-nav="stars"] { justify-content: center; }
+    .bottom-nav .mts-label { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.85rem; font-weight: bold; }
     .mts-balance { display: flex; align-items: center; gap: 0.6rem; font-size: 2rem; font-weight: bold; color: var(--warn); margin: 0.3rem 0; }
     .mts-balance .icon { width: 2rem; height: 2rem; fill: var(--warn); stroke: var(--warn); }
     .check-row { display: flex; justify-content: space-between; gap: 0.75rem; padding: 0.5rem 0; border-top: 1px solid var(--border); font-size: 0.85rem; }
@@ -496,7 +498,7 @@
   </section>
 
   <nav class="bottom-nav" aria-label="Hauptnavigation">
-    <button type="button" data-nav="stars" onclick="showTab('stars')" aria-label="MTS: MAJOR und Telegram Stars"><svg class="icon"><use href="#i-star"/></svg>MTS</button>
+    <button type="button" data-nav="stars" onclick="showTab('stars')" aria-label="MTS: MAJOR und Telegram Stars"><span class="mts-label">MTS<svg class="icon" aria-hidden="true"><use href="#i-star"/></svg></span></button>
     <button type="button" data-nav="home" aria-current="page" onclick="showTab('home')"><svg class="icon"><use href="#i-home"/></svg>Home</button>
     <button type="button" data-nav="dex" onclick="showTab('dex')"><svg class="icon"><use href="#i-chart"/></svg>Trading</button>
     <button type="button" data-nav="tc" onclick="showTab('tc')" aria-label="TC TGRAM Copilot"><svg class="icon"><use href="#i-bot"/></svg>TC</button>
