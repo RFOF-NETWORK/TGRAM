@@ -255,7 +255,16 @@
         <button type="button" id="perp-auto" aria-pressed="false" onclick="toggleAiAutopilot()">Autopilot an</button>
       </div>
       <div id="perp-signal" class="list" style="margin-top:0.6rem;" aria-live="polite"><p class="muted" style="margin:0;">Noch kein Signal.</p></div>
-      <a class="btn btn-ghost" id="perp-open" href="https://app.storm.trade/" target="_blank" rel="noopener noreferrer">Storm Trade öffnen</a>
+      <a class="btn btn-ghost" id="perp-open" href="https://app.storm.trade/" target="_blank" rel="noopener noreferrer">Storm Trade öffnen (echte Order)</a>
+      <h4 style="margin:1rem 0 0.4rem;">Paper-Trading · 1.000 $ Spielgeld</h4>
+      <p class="muted" style="margin-top:0;">Teste das KI-Signal ohne Risiko: Einstieg und Ausstieg zum echten Live-Kurs, Gewinn und Verlust werden gespeichert. Ab kleinem Einsatz nach oben kämpfen.</p>
+      <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+        <label for="paper-margin" class="muted">Einsatz $</label>
+        <input id="paper-margin" type="number" min="1" step="1" value="10" inputmode="decimal" style="width:6rem;">
+        <button type="button" class="btn" onclick="paperFromSignal()">Signal als Position öffnen</button>
+      </div>
+      <p id="paper-balance" class="muted" style="margin:0.6rem 0 0;">Kontostand wird geladen …</p>
+      <div id="paper-list" class="list" style="margin-top:0.4rem;" aria-live="polite"></div>
     </div>
     <div class="card">
       <h3>Swap</h3>
@@ -361,7 +370,13 @@
     <div class="card" id="tlpfg-launches" aria-labelledby="launches-title">
       <h3 id="launches-title">TLPFG Launches · Paralleler DEX</h3>
       <p class="muted" style="margin-top:0;">Jeder über TLPFG gelaunchte Öko-Token handelt ab dem Start auf STON.fi. Ab 10 000 $ Liquidität wird er zusätzlich auf DeDust gebracht. Liquidität live von GeckoTerminal.</p>
-      <div class="list" id="launch-list" aria-live="polite"><p class="muted" style="margin:0;">Lade Launches …</p></div>
+      <div class="list" aria-label="Pool-Aufteilung">
+        <div class="list-row"><span>Ausschüttung an Nutzer</span><strong>25 %</strong></div>
+        <div class="list-row"><span>Für immer gesperrt</span><strong>25 %</strong></div>
+        <div class="list-row"><span>Liquidität auf STON.fi</span><strong>25 %</strong></div>
+        <div class="list-row"><span>Treasury / Vault</span><strong>25 %</strong></div>
+      </div>
+      <div class="list" id="launch-list" style="margin-top:0.6rem;" aria-live="polite"><p class="muted" style="margin:0;">Lade Launches …</p></div>
       <form id="launch-register" onsubmit="event.preventDefault(); registerLaunch();" style="margin-top:0.8rem;">
         <h3 style="margin:0 0 0.5rem;">Gelaunchten Jetton eintragen</h3>
         <input id="lr-address" required placeholder="Jetton-Master-Adresse (EQ… / UQ…)" aria-label="Jetton-Master-Adresse" style="margin-bottom:0.5rem;" />
@@ -774,7 +789,7 @@
       if ((name === 'staking' || name === 'mining' || name === 'stars') && userAddress) loadJettons();
       if (name === 'mining') loadFarms();
       if (name === 'verlauf' && userAddress) loadHistory().then(loadAccountAnalysis);
-      if (name === 'dex') { loadPools(); updateDexFee(); loadChart(chartPair); if (userAddress && !txCache.length) loadHistory(); }
+      if (name === 'dex') { loadPools(); updateDexFee(); loadChart(chartPair); paperCall({ action: 'list' }); if (userAddress && !txCache.length) loadHistory(); }
       if (name === 'tc') { initCopilot(); setTimeout(() => document.getElementById('chat-input').focus(), 50); }
       if (name === 'docs') { renderPlan(); runGuardian(); }
       if (name === 'stars') loadStars();
@@ -1152,6 +1167,31 @@
     }
 
     let aiAutoTimer = null;
+    let lastSignal = null;
+    const PAPER_ERRORS = { insufficient_balance: 'Nicht genug Spielgeld.', too_many_open: 'Maximal 5 offene Positionen.', no_price: 'Kein Live-Kurs verfügbar.', bad_master: 'Für dieses Paar gibt es noch keinen On-Chain-Kurs.' };
+    async function paperCall(payload) {
+      const initData = window.Telegram?.WebApp?.initData || '';
+      const box = document.getElementById('paper-list');
+      if (!initData) { document.getElementById('paper-balance').textContent = 'Paper-Trading läuft nur in Telegram (@toncoing_bot).'; return; }
+      try {
+        const j = await (await fetch(API_BASE + '/paper-trade', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ initData, ...payload }) })).json();
+        if (!j.ok) throw new Error(PAPER_ERRORS[j.error] || j.error);
+        const fmt = n => (n >= 0 ? '+' : '') + n.toFixed(2) + ' $';
+        document.getElementById('paper-balance').textContent = `Frei: ${j.balance_usd.toFixed(2)} $ · Realisiert: ${fmt(j.realized_usd)}`;
+        box.innerHTML = j.positions.length ? j.positions.slice(0, 10).map(p => {
+          const pnl = p.closed_at ? Number(p.pnl_usd) : p.live_pnl_usd;
+          const cls = pnl == null ? 'muted' : pnl >= 0 ? 'ok' : 'bad';
+          const action = p.closed_at ? '<span class="muted">geschlossen</span>' : `<button type="button" class="btn btn-ghost" onclick="paperCall({action:'close',id:${Number(p.id)}})">Schließen</button>`;
+          return `<div class="list-row"><span><strong>${esc(p.side)}</strong> ${esc(p.pair)} · ${p.leverage}x · ${Number(p.margin_usd).toFixed(2)} $<br><span class="${cls}">${pnl == null ? '–' : fmt(pnl)}</span></span>${action}</div>`;
+        }).join('') : '<p class="muted" style="margin:0;">Noch keine Positionen.</p>';
+      } catch (e) { box.innerHTML = `<p class="muted" style="margin:0;">Paper-Trading: ${esc(e.message)}</p>`; }
+    }
+    function paperFromSignal() {
+      if (!lastSignal || lastSignal.signal === 'HOLD') { document.getElementById('paper-balance').textContent = 'Erst ein LONG- oder SHORT-Signal der KI holen.'; return; }
+      const pair = lastSignal.pair;
+      const master = pair === 'TON' ? null : ((jettons[pair] || (ECO_ALIASES[pair] && ecoJetton(pair)))?.master || dexAssets.get(pair)?.addr || '');
+      paperCall({ action: 'open', pair, master, side: lastSignal.signal, leverage: lastSignal.leverage, margin: Number(document.getElementById('paper-margin').value) });
+    }
     async function runAiTrader() {
       const out = document.getElementById('perp-signal');
       const initData = window.Telegram?.WebApp?.initData || '';
@@ -1162,6 +1202,7 @@
         const candles = lastCandles.slice(-48).map(c => [c.time, c.open, c.high, c.low, c.close]);
         const j = await (await fetch(API_BASE + '/ai-trader', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ initData, pair: chartPair, candles }) })).json();
         if (!j.ok) throw new Error(j.error);
+        lastSignal = j;
         const cls = j.signal === 'LONG' ? 'ok' : j.signal === 'SHORT' ? 'bad' : 'muted';
         out.innerHTML = `<div class="list-row"><span><strong class="${cls}">${esc(j.signal)}</strong> ${esc(j.pair)} · ${j.leverage}x · ${j.confidence} %<br><span class="muted">${esc(j.reason)}</span></span><span class="muted">${new Date().toLocaleTimeString('de-DE')}</span></div>`;
         return true;
