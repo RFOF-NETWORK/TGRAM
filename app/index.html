@@ -74,12 +74,14 @@
     <symbol id="i-rocket" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.3-2 5-2 5s3.7-.5 5-2c.7-.8.7-2.1-.1-2.9a2.2 2.2 0 0 0-2.9-.1zM12 15l-3-3a22 22 0 0 1 2-4A13 13 0 0 1 22 2c0 2.7-.8 7.5-6 11a22 22 0 0 1-4 2zM9 12H4s.6-3 2-4c1.6-1.1 5 0 5 0M12 15v5s3-.6 4-2c1.1-1.6 0-5 0-5"/></symbol>
     <symbol id="i-coins" viewBox="0 0 24 24"><circle cx="8" cy="8" r="6"/><path d="M18.1 10.4A6 6 0 1 1 10.3 18M7 6h1v4M16.7 13.9l.7.7-2.8 2.8"/></symbol>
     <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+    <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 3"/></symbol>
     <symbol id="i-bot" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="12" rx="2"/><path d="M12 8V4M8 14h.01M16 14h.01"/></symbol>
   </svg>
 
   <header class="app-header">
     <h1><svg class="icon"><use href="#i-globe"/></svg>TGRAM Gateway</h1>
     <div class="header-actions">
+      <button class="icon-btn" type="button" onclick="showTab('verlauf')" aria-label="Verlauf"><svg class="icon"><use href="#i-history"/></svg></button>
       <button class="icon-btn" type="button" onclick="showTab('profil')" aria-label="Settings"><svg class="icon"><use href="#i-gear"/></svg></button>
       <a class="icon-btn" href="https://t.me/wallet?start=buy" target="_blank" rel="noopener noreferrer"><svg class="icon"><use href="#i-card"/></svg>Kaufen</a>
     </div>
@@ -106,57 +108,10 @@
       <div id="ton-connect-root" style="display:none;"></div>
     </div>
 
-    <div class="card" id="dashboard" style="opacity: 0.5; pointer-events: none;">
-      <h3>Währungssystem & Ökosystem</h3>
-      <div class="tab-buttons">
-        <button class="tab-btn active" onclick="switchTab('swap')">Swap</button>
-        <button class="tab-btn" onclick="switchTab('staking')">Staking</button>
-        <button class="tab-btn" onclick="switchTab('vault')">XP Vault</button>
-      </div>
-
-      <!-- SWAP MODUL -->
-      <div id="tab-swap">
-        <div class="input-group">
-          <select id="swap-from">
-            <option value="TON">TON</option>
-            <option value="NEC">NEC</option>
-            <option value="BBC">BBC</option>
-            <option value="AXF">AXF</option>
-          </select>
-          <select id="swap-to">
-            <option value="NEC">NEC</option>
-            <option value="BBC">BBC</option>
-            <option value="AXF">AXF</option>
-            <option value="TON">TON</option>
-          </select>
-        </div>
-        <input type="number" id="swap-amount" placeholder="Betrag eingeben..." oninput="updateSwapFee()" />
-        <div class="token-balance"><span>Plattform-Gebühr (1 %):</span><span id="swap-fee">0.00</span></div>
-        <div class="token-balance"><span>Du erhältst (vor Kurs):</span><span id="swap-net">0.00</span></div>
-        <button class="btn" onclick="executeSwap()">Token tauschen</button>
-      </div>
-
-      <!-- STAKING MODUL -->
-      <div id="tab-staking" class="hidden">
-        <div class="token-balance"><span>Verfügbar (NEC):</span><span id="stake-bal">–</span></div>
-        <input type="number" id="stake-amount" placeholder="NEC Menge zum Staken..." />
-        <div class="input-group">
-          <select id="stake-pool">
-            <option value="30">30 Tage (5% APY)</option>
-            <option value="90">90 Tage (12% APY)</option>
-            <option value="365">365 Tage (25% APY)</option>
-          </select>
-        </div>
-        <button class="btn" onclick="executeStake()">Staken & Pool stabilisieren</button>
-      </div>
-
-      <!-- VAULT MODUL -->
-      <div id="tab-vault" class="hidden">
-        <p class="warn" style="font-size: 0.85rem;">Gesperrte Vermögenswerte für Arbitrage (AXF):</p>
-        <div class="token-balance"><span>XP Level:</span><span id="xp-level" class="ok">1</span></div>
-        <div class="token-balance"><span>Gesperrte AXF:</span><span id="vault-bal">–</span></div>
-        <button class="btn" onclick="claimVault()">Tägliche XP & Rendite abholen</button>
-      </div>
+    <div class="card">
+      <h3>Meine Token</h3>
+      <div class="list" id="home-tokens"><p class="muted">Wallet verbinden, um TON, NEC, BBC und AXF zu sehen.</p></div>
+      <p class="muted" style="margin-bottom:0;">Jetton-Gebühren (NEC/BBC/AXF) übernimmt <strong>@toncoing_bot</strong> als Freundschaftsbündnis mit seinen Usern.</p>
     </div>
 
     <div class="card">
@@ -199,16 +154,17 @@
   </main>
 
   <!-- ================= DEX ================= -->
-  <section id="view-dex" data-view class="hidden" aria-label="DEX">
+  <section id="view-dex" data-view class="hidden" aria-label="DEX Trading">
     <div class="card">
-      <h3>DEX Swap (1 % Plattform-Gebühr)</h3>
-      <p class="muted">Die Gebühr geht on-chain an den TGRAM Vault, der Swap läuft über STON.fi DEX v2.</p>
+      <h3>DEX Trading</h3>
+      <p class="muted">Swap über STON.fi DEX v2. TON-Swaps: 1 % Plattform-Gebühr on-chain an den TGRAM Vault. Jetton-Swaps (NEC/BBC/AXF): die Plattform-Gebühr übernimmt @toncoing_bot.</p>
       <div class="input-group">
-        <select id="dex-from" aria-label="Von"><option>TON</option><option>NEC</option><option>BBC</option><option>AXF</option></select>
+        <select id="dex-from" aria-label="Von" onchange="updateDexFee()"><option>TON</option><option>NEC</option><option>BBC</option><option>AXF</option></select>
         <select id="dex-to" aria-label="Nach"><option>NEC</option><option>BBC</option><option>AXF</option><option>TON</option></select>
       </div>
       <input type="number" id="dex-amount" placeholder="Betrag..." oninput="updateDexFee()" aria-label="Betrag" />
-      <div class="token-balance"><span>Gebühr 1 %:</span><span id="dex-fee">0.0000</span></div>
+      <div class="token-balance"><span>Verfügbar:</span><span id="dex-avail">–</span></div>
+      <div class="token-balance"><span id="dex-fee-label">Plattform-Gebühr 1 %:</span><span id="dex-fee">0.0000</span></div>
       <div class="token-balance"><span>Netto in den Swap:</span><span id="dex-net">0.0000</span></div>
       <button class="btn" type="button" onclick="executeDexSwap()">Gebühr zahlen & Swap öffnen</button>
     </div>
@@ -241,21 +197,52 @@
   </section>
 
   <!-- ================= STAKING ================= -->
-  <section id="view-staking" data-view class="hidden" aria-label="Staking">
+  <section id="view-staking" data-view class="hidden" aria-label="Staking und Mining">
     <div class="card">
-      <h3>Staking</h3>
+      <h3>Staking & Mining</h3>
       <div class="switch" role="group" aria-label="Netzwerk">
         <button type="button" id="net-mainnet" aria-pressed="true" onclick="setNetwork('mainnet')">Mainnet</button>
         <button type="button" id="net-testnet" aria-pressed="false" onclick="setNetwork('testnet')">Testnet</button>
       </div>
       <div class="token-balance"><span>Netzwerk:</span><span id="net-label" class="ok">Mainnet</span></div>
       <div class="token-balance"><span>TON Balance:</span><span id="stake-ton">–</span></div>
-      <h3 style="margin-top:1rem;">Jettons & LP-Anteile</h3>
-      <div class="list" id="jetton-list"><p class="muted">Wallet verbinden, um Jettons und LP-Token zu laden.</p></div>
     </div>
     <div class="card">
-      <h3>Transaktionsverlauf</h3>
+      <h3>Staking (NEC)</h3>
+      <div class="token-balance"><span>Verfügbar (NEC):</span><span id="stake-bal">–</span></div>
+      <input type="number" id="stake-amount" placeholder="NEC Menge zum Staken..." aria-label="NEC Menge" />
+      <div class="input-group" style="margin-top:0.5rem;">
+        <select id="stake-pool" aria-label="Laufzeit">
+          <option value="30">30 Tage (5% APY)</option>
+          <option value="90">90 Tage (12% APY)</option>
+          <option value="365">365 Tage (25% APY)</option>
+        </select>
+      </div>
+      <p class="muted" style="margin:0;">Plattform-Gebühr: 0 % (übernimmt @toncoing_bot)</p>
+      <button class="btn" type="button" onclick="executeStake()">Staken & Pool stabilisieren</button>
+    </div>
+    <div class="card">
+      <h3>Mining · XP Vault (AXF)</h3>
+      <p class="warn" style="font-size:0.85rem; margin-top:0;">Gesperrte Vermögenswerte für Arbitrage (AXF):</p>
+      <div class="token-balance"><span>XP Level:</span><span id="xp-level" class="ok">1</span></div>
+      <div class="token-balance"><span>AXF in Wallet:</span><span id="vault-bal">–</span></div>
+      <button class="btn" type="button" onclick="claimVault()">Tägliche XP & Rendite abholen</button>
+    </div>
+    <div class="card">
+      <h3>Jettons & LP-Anteile</h3>
+      <div class="list" id="jetton-list"><p class="muted">Wallet verbinden, um Jettons und LP-Token zu laden.</p></div>
+    </div>
+  </section>
+
+  <!-- ================= VERLAUF ================= -->
+  <section id="view-verlauf" data-view class="hidden" aria-label="Verlauf">
+    <div class="card">
+      <h3>TON-Transaktionen</h3>
       <div class="list" id="tx-list"><p class="muted">Wallet verbinden, um den Verlauf aus der Blockchain zu laden.</p></div>
+    </div>
+    <div class="card">
+      <h3>Jetton-Transfers (NEC/BBC/AXF)</h3>
+      <div class="list" id="jt-list"><p class="muted">Wallet verbinden, um Jetton-Transfers zu laden.</p></div>
     </div>
   </section>
 
@@ -275,16 +262,18 @@
 
   <nav class="bottom-nav" aria-label="Hauptnavigation">
     <button type="button" data-nav="home" aria-current="page" onclick="showTab('home')"><svg class="icon"><use href="#i-home"/></svg>Home</button>
-    <button type="button" data-nav="dex" onclick="showTab('dex')"><svg class="icon"><use href="#i-chart"/></svg>DEX</button>
+    <button type="button" data-nav="dex" onclick="showTab('dex')"><svg class="icon"><use href="#i-chart"/></svg>Trading</button>
     <button type="button" data-nav="launchpad" onclick="showTab('launchpad')"><svg class="icon"><use href="#i-rocket"/></svg>Launchpad</button>
-    <button type="button" data-nav="staking" onclick="showTab('staking')"><svg class="icon"><use href="#i-coins"/></svg>Staking</button>
+    <button type="button" data-nav="staking" onclick="showTab('staking')"><svg class="icon"><use href="#i-coins"/></svg>Mining</button>
     <button type="button" data-nav="profil" onclick="showTab('profil')"><svg class="icon"><use href="#i-user"/></svg>Profil</button>
   </nav>
 
   <dialog id="send-dialog" aria-labelledby="send-title">
-    <h3 id="send-title">TON senden</h3>
+    <h3 id="send-title">Senden</h3>
+    <select id="send-token" aria-label="Token" style="margin-bottom:0.5rem;"><option value="TON">TON</option></select>
     <input id="send-to" placeholder="Empfänger-Adresse (UQ.../EQ...)" aria-label="Empfänger" />
-    <input id="send-amount" type="number" placeholder="Betrag in TON" style="margin-top:0.5rem;" aria-label="Betrag in TON" />
+    <input id="send-amount" type="number" placeholder="Betrag" style="margin-top:0.5rem;" aria-label="Betrag" />
+    <p class="muted" id="send-note">Netzwerk-Gas wird in TON von deiner Wallet bezahlt.</p>
     <button class="btn" type="button" onclick="executeSend()">Mit Wallet bestätigen</button>
     <button class="btn btn-ghost" type="button" onclick="this.closest('dialog').close()">Abbrechen</button>
   </dialog>
@@ -311,13 +300,25 @@
     const short = a => a ? a.slice(0, 6) + "..." + a.slice(-4) : "";
 
     // --- V4.1 Navigation ---
+    const VIEWS = ['home', 'dex', 'launchpad', 'staking', 'verlauf', 'profil'];
+    const jettons = {};
+    const feeRate = sym => sym === 'TON' ? DEX_FEE : 0;
+
     function showTab(name) {
+      if (location.hash !== '#' + name) location.hash = name;
+      else renderView(name);
+    }
+
+    function renderView(name) {
+      if (!VIEWS.includes(name)) name = 'home';
       document.querySelectorAll('[data-view]').forEach(v => v.classList.toggle('hidden', v.id !== 'view-' + name));
       document.querySelectorAll('[data-nav]').forEach(b => { if (b.dataset.nav === name) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
-      if (name === 'staking' && userAddress) loadChainData();
-      if (name === 'dex') loadPools();
+      if (name === 'staking' && userAddress) loadJettons();
+      if (name === 'verlauf' && userAddress) loadHistory();
+      if (name === 'dex') { loadPools(); updateDexFee(); }
       window.scrollTo(0, 0);
     }
+    window.addEventListener('hashchange', () => renderView(location.hash.slice(1)));
 
     function setLang(l) { document.documentElement.lang = l; }
 
@@ -331,16 +332,15 @@
       } catch (e) { el.textContent = "offline"; }
     }
 
-    function updateSwapFee() {
-      const amt = Number(document.getElementById('swap-amount').value) || 0;
-      document.getElementById('swap-fee').textContent = (amt * DEX_FEE).toFixed(4);
-      document.getElementById('swap-net').textContent = (amt * (1 - DEX_FEE)).toFixed(4);
-    }
-
     function updateDexFee() {
+      const from = document.getElementById('dex-from').value;
       const amt = Number(document.getElementById('dex-amount').value) || 0;
-      document.getElementById('dex-fee').textContent = (amt * DEX_FEE).toFixed(4);
-      document.getElementById('dex-net').textContent = (amt * (1 - DEX_FEE)).toFixed(4);
+      const rate = feeRate(from);
+      document.getElementById('dex-fee-label').textContent = rate ? 'Plattform-Gebühr 1 %:' : 'Plattform-Gebühr (übernimmt @toncoing_bot):';
+      document.getElementById('dex-fee').textContent = (amt * rate).toFixed(4);
+      document.getElementById('dex-net').textContent = (amt * (1 - rate)).toFixed(4);
+      const avail = from === 'TON' ? document.getElementById('stake-ton').textContent : (jettons[from] ? jettons[from].balance.toFixed(4) + ' ' + from : (userAddress ? '0 ' + from : '–'));
+      document.getElementById('dex-avail').textContent = avail;
     }
 
     function loadScript(src) {
@@ -349,13 +349,6 @@
         s.src = src; s.onload = r; s.onerror = r;
         document.head.appendChild(s);
       });
-    }
-
-    function switchTab(tabId) {
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('[id^="tab-"]').forEach(d => d.classList.add('hidden'));
-      event.target.classList.add('active');
-      document.getElementById('tab-' + tabId).classList.remove('hidden');
     }
 
     async function fetchAccountState(addr) {
@@ -380,29 +373,63 @@
       } catch (e) {}
     }
 
-    async function loadChainData() {
+    const ECO_TOKENS = ['NEC', 'BBC', 'AXF'];
+
+    async function loadJettons() {
       if (!userAddress) return;
       const base = TONCENTER[network];
       const jl = document.getElementById("jetton-list");
-      const tl = document.getElementById("tx-list");
-      jl.innerHTML = tl.innerHTML = '<p class="muted">Lade aus der Blockchain...</p>';
+      jl.innerHTML = '<p class="muted">Lade aus der Blockchain...</p>';
+      Object.keys(jettons).forEach(k => delete jettons[k]);
       try {
-        const j = await (await fetch(base + "/jetton/wallets?owner_address=" + encodeURIComponent(userAddress) + "&limit=20")).json();
+        const j = await (await fetch(base + "/jetton/wallets?owner_address=" + encodeURIComponent(userAddress) + "&limit=50")).json();
         const meta = j.metadata || {};
         const rows = (j.jetton_wallets || []).filter(w => w.balance !== "0").map(w => {
           const info = (meta[w.jetton] && meta[w.jetton].token_info && meta[w.jetton].token_info[0]) || {};
-          const dec = Number(info.extra && info.extra.decimals || 9);
-          const bal = (Number(w.balance) / 10 ** dec).toFixed(4);
-          const sym = info.symbol || short(w.jetton);
-          if (sym === "NEC") document.getElementById("stake-bal").textContent = bal;
-          if (sym === "AXF") document.getElementById("vault-bal").textContent = bal;
-          return `<div class="list-row"><span>${esc(sym)}${/LP|STON/i.test(info.name || "") ? " (LP)" : ""}</span><span>${esc(bal)}</span></div>`;
+          const decimals = Number(info.extra && info.extra.decimals || 9);
+          const balance = Number(w.balance) / 10 ** decimals;
+          const sym = (info.symbol || short(w.jetton)).toUpperCase();
+          if (!jettons[sym]) jettons[sym] = { wallet: w.address, master: w.jetton, decimals, balance };
+          return `<div class="list-row"><span>${esc(sym)}${/LP|STON/i.test(info.name || "") ? " (LP)" : ""}</span><span>${esc(balance.toFixed(4))}</span></div>`;
         });
         jl.innerHTML = rows.join("") || '<p class="muted">Keine Jettons oder LP-Token in dieser Wallet.</p>';
       } catch (e) { jl.innerHTML = '<p class="warn">Jettons konnten nicht geladen werden.</p>'; }
+      renderTokens();
+    }
+
+    function renderTokens() {
+      const bal = s => jettons[s] ? jettons[s].balance.toFixed(4) : "0.0000";
+      document.getElementById("stake-bal").textContent = bal("NEC");
+      document.getElementById("vault-bal").textContent = bal("AXF");
+      document.getElementById("home-tokens").innerHTML =
+        `<div class="list-row"><span>TON</span><span>${esc(document.getElementById("stake-ton").textContent)}</span></div>` +
+        ECO_TOKENS.map(s => `<div class="list-row"><span>${s}${jettons[s] ? "" : ' <span class="muted">(nicht in Wallet)</span>'}</span><span>${bal(s)}</span></div>`).join("");
+      const sel = document.getElementById("send-token");
+      sel.innerHTML = '<option value="TON">TON</option>' + Object.keys(jettons).map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join("");
+      updateDexFee();
+    }
+
+    async function loadHistory() {
+      if (!userAddress) return;
+      const base = TONCENTER[network];
+      const tl = document.getElementById("tx-list");
+      const jtl = document.getElementById("jt-list");
+      tl.innerHTML = jtl.innerHTML = '<p class="muted">Lade aus der Blockchain...</p>';
+      const explorer = network === "testnet" ? "https://testnet.tonviewer.com/transaction/" : "https://tonviewer.com/transaction/";
+      try {
+        const d = await (await fetch(base + "/jetton/transfers?owner_address=" + encodeURIComponent(userAddress) + "&limit=10&sort=desc")).json();
+        const masters = Object.fromEntries(Object.entries(jettons).map(([s, j]) => [j.master, j]));
+        jtl.innerHTML = (d.jetton_transfers || []).map(t => {
+          const j = masters[t.jetton_master];
+          const sym = Object.keys(jettons).find(s => jettons[s] === j) || short(t.jetton_master);
+          const amt = (Number(t.amount) / 10 ** (j ? j.decimals : 9)).toFixed(4);
+          const dir = t.source_wallet && j && t.source_wallet === j.wallet ? "Ausgang" : "Eingang";
+          const date = new Date(t.transaction_now * 1000).toLocaleString("de-DE");
+          return `<div class="list-row"><span>${esc(date)}<br>${dir} ${esc(amt)} ${esc(sym)}</span><a href="${explorer + encodeURIComponent(t.transaction_hash)}" target="_blank" rel="noopener noreferrer">TX</a></div>`;
+        }).join("") || '<p class="muted">Noch keine Jetton-Transfers.</p>';
+      } catch (e) { jtl.innerHTML = '<p class="warn">Jetton-Transfers konnten nicht geladen werden.</p>'; }
       try {
         const t = await (await fetch(base + "/transactions?account=" + encodeURIComponent(userAddress) + "&limit=10&sort=desc")).json();
-        const explorer = network === "testnet" ? "https://testnet.tonviewer.com/transaction/" : "https://tonviewer.com/transaction/";
         tl.innerHTML = (t.transactions || []).map(tx => {
           const inVal = Number(tx.in_msg && tx.in_msg.value || 0);
           const outVal = (tx.out_msgs || []).reduce((s, m) => s + Number(m.value || 0), 0);
@@ -440,7 +467,7 @@
       document.getElementById("net-testnet").setAttribute("aria-pressed", String(n === "testnet"));
       document.getElementById("net-label").textContent = n === "mainnet" ? "Mainnet" : "Testnet";
       document.getElementById("net-label").className = n === "mainnet" ? "ok" : "warn";
-      if (userAddress) { fetchAccountState(userAddress); loadChainData(); }
+      if (userAddress) { fetchAccountState(userAddress); loadJettons(); }
     }
 
     function applyConnectedState(addr) {
@@ -448,15 +475,13 @@
       const btn = document.getElementById("app-unified-btn");
       btn.textContent = "Sitzung aktiv (" + addr.slice(0, 8) + ")";
       btn.disabled = true;
-      document.getElementById("dashboard").style.opacity = "1";
-      document.getElementById("dashboard").style.pointerEvents = "auto";
       document.getElementById("balance-name").textContent = short(addr);
       document.getElementById("profile-wallet").textContent = addr;
       document.getElementById("receive-addr").textContent = addr;
       fetchAccountState(addr);
       resolveName(addr);
       refreshCredits();
-      loadChainData();
+      loadJettons();
     }
 
     async function globalLogout() {
@@ -484,16 +509,43 @@
       return tc.sendTransaction({ validUntil: Math.floor(Date.now() / 1000) + 300, messages: [{ address: to, amount: nano }] });
     }
 
+    // TEP-74 jetton transfer: message to the user's own jetton wallet; the gas is paid in TON from the user's wallet.
+    async function sendJetton(sym, to, amount) {
+      if (!tc || !tc.connected) throw new Error("Wallet ist nicht über TON Connect verbunden.");
+      const j = jettons[sym];
+      if (!j) throw new Error(sym + " ist nicht in deiner Wallet.");
+      if (amount > j.balance) throw new Error("Nicht genug " + sym + " (verfügbar: " + j.balance.toFixed(4) + ").");
+      const { beginCell, Address } = await import("https://esm.sh/@ton/core@0.59.0");
+      const units = BigInt(Math.round(amount * 10 ** j.decimals));
+      const body = beginCell()
+        .storeUint(0xf8a7ea5, 32).storeUint(Date.now(), 64)
+        .storeCoins(units)
+        .storeAddress(Address.parse(to))
+        .storeAddress(Address.parse(userAddress))
+        .storeBit(0).storeCoins(1n).storeBit(0)
+        .endCell();
+      return tc.sendTransaction({
+        validUntil: Math.floor(Date.now() / 1000) + 300,
+        messages: [{ address: Address.parse(j.wallet).toString({ bounceable: true }), amount: "50000000", payload: body.toBoc().toString("base64") }],
+      });
+    }
+
     async function executeSend() {
+      const sym = document.getElementById("send-token").value;
       const to = document.getElementById("send-to").value.trim();
       const amt = Number(document.getElementById("send-amount").value);
       if (!/^[UEk0][Qf:][\w-]{40,}$/.test(to)) return alert("Ungültige TON-Adresse.");
       if (!(amt > 0)) return alert("Bitte Betrag eingeben.");
-      try { await sendTon(to, amt); document.getElementById("send-dialog").close(); setTimeout(() => fetchAccountState(userAddress), 8000); }
+      try {
+        if (sym === "TON") await sendTon(to, amt); else await sendJetton(sym, to, amt);
+        document.getElementById("send-dialog").close();
+        setTimeout(() => { fetchAccountState(userAddress); loadJettons(); }, 8000);
+      }
       catch (e) { alert("Senden abgebrochen: " + e.message); }
     }
 
     (async () => {
+      renderView(location.hash.slice(1));
       const p = "https://";
       await loadScript(p + "telegram.org/js/telegram-web-app.js");
       await loadScript(p + "unpkg.com/@tonconnect/ui@2.0.9/dist/tonconnect-ui.min.js");
@@ -536,25 +588,18 @@
     // --- DEX: 1 % Gebühr on-chain an den Vault, dann Swap via STON.fi ---
     async function payFeeAndSwap(from, to, amt) {
       if (from === to) return alert("Bitte zwei verschiedene Token wählen.");
-      const fee = amt * DEX_FEE;
+      if (from !== "TON") {
+        const j = jettons[from];
+        if (!j || amt > j.balance) return alert(`Nicht genug ${from} in deiner Wallet (verfügbar: ${j ? j.balance.toFixed(4) : 0}).`);
+      }
+      const fee = amt * feeRate(from);
       const net = amt - fee;
-      if (from === "TON") {
+      if (fee > 0) {
         try { await sendTon(TGRAM_VAULT, fee); }
         catch (e) { return alert("Gebühr nicht bezahlt, Swap abgebrochen: " + e.message); }
-      } else {
-        alert(`Gebühr 1 %: ${fee.toFixed(4)} ${from} wird im nächsten Schritt an den TGRAM Vault (${short(TGRAM_VAULT)}) gesendet.`);
       }
-      window.open(`https://app.ston.fi/swap?ft=${encodeURIComponent(from)}&tt=${encodeURIComponent(to)}&fa=${encodeURIComponent(net.toFixed(4))}`, "_blank", "noopener");
-    }
-
-    function executeSwap() {
-      const from = document.getElementById('swap-from').value;
-      const to = document.getElementById('swap-to').value;
-      const amt = Number(document.getElementById('swap-amount').value);
-      if (!(amt > 0)) return alert("Bitte Betrag eingeben.");
-      payFeeAndSwap(from, to, amt);
-      document.getElementById('swap-amount').value = '';
-      updateSwapFee();
+      const asset = s => s === "TON" ? "TON" : (jettons[s] ? jettons[s].master : s);
+      window.open(`https://app.ston.fi/swap?ft=${encodeURIComponent(asset(from))}&tt=${encodeURIComponent(asset(to))}&fa=${encodeURIComponent(net.toFixed(4))}`, "_blank", "noopener");
     }
 
     function executeDexSwap() {
@@ -567,6 +612,7 @@
     function executeStake() {
       const amt = document.getElementById('stake-amount').value;
       if(!amt || amt <= 0) return alert("Bitte NEC Betrag eingeben.");
+      if (!jettons.NEC || Number(amt) > jettons.NEC.balance) return alert(`Nicht genug NEC in deiner Wallet (verfügbar: ${jettons.NEC ? jettons.NEC.balance.toFixed(4) : 0}).`);
       window.open("https://app.ston.fi/pools", "_blank", "noopener");
       document.getElementById('stake-amount').value = '';
     }
