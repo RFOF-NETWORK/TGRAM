@@ -1,0 +1,75 @@
+{
+  "mode": "append-only",
+  "description": "Black/White checklist for TGRAM agents. WHITE = allowed corrections. BLACK = never modify, delete or replace.",
+  "blacklist_never_touch": [
+    "cloud-storage/worker.js",
+    "wrangler.toml",
+    ".github/workflows/autonomous-tgram.yml",
+    "app/ai-agents/tonconnect_termux_auth.py",
+    "tonconnect-manifest.json",
+    "index.html",
+    "app/index.html",
+    "app/app.js",
+    "extensions.json",
+    "blockchain-cloud/apiless-onchain/",
+    ".env",
+    ".env.example"
+  ],
+  "whitelist_allowed_actions": [
+    "add_new_file",
+    "append_to_file",
+    "bump_action_version",
+    "add_missing_dependency_file",
+    "write_agent_report"
+  ],
+  "known_fixes": [
+    {
+      "id": "pip-cache-no-requirements",
+      "pattern": "No file in .* matched to \\[\\*\\*/requirements.txt",
+      "diagnosis": "actions/setup-python with cache: pip needs a requirements.txt or pyproject.toml.",
+      "fix": "add_missing_dependency_file",
+      "solution": "Create requirements.txt in repo root (requests, python-dotenv).",
+      "status": "solved"
+    },
+    {
+      "id": "scorecard-gcr-billing",
+      "pattern": "gcr.io/openssf/scorecard-action.*|requires billing to be enabled",
+      "diagnosis": "Old scorecard-action version pulls its image from gcr.io, which is no longer available.",
+      "fix": "bump_action_version",
+      "solution": "Use ossf/scorecard-action@v2.6.0 (image on ghcr.io).",
+      "status": "solved"
+    },
+    {
+      "id": "missing-env-key",
+      "pattern": "KeyError: '([A-Z0-9_]+)'|environment variable ([A-Z0-9_]+) (is )?not set",
+      "diagnosis": "A key used in code is missing from the environment.",
+      "fix": "append_to_file",
+      "solution": "Run auto_heal_env.py (appends empty key to .env.example) and add the value as a GitHub secret.",
+      "status": "solved"
+    },
+    {
+      "id": "module-not-found",
+      "pattern": "ModuleNotFoundError: No module named '([\\w\\.]+)'",
+      "diagnosis": "Python dependency missing on the runner.",
+      "fix": "append_to_file",
+      "solution": "Append the package to requirements.txt.",
+      "status": "solved"
+    },
+    {
+      "id": "push-rejected",
+      "pattern": "\\[rejected\\].*\\(fetch first\\)|Updates were rejected",
+      "diagnosis": "Bot push raced with another push.",
+      "fix": "write_agent_report",
+      "solution": "Run git pull --rebase before git push in the bot step.",
+      "status": "solved"
+    },
+    {
+      "id": "permission-denied-token",
+      "pattern": "Resource not accessible by integration|403.*github-actions\\[bot\\]",
+      "diagnosis": "GITHUB_TOKEN lacks permissions for this job.",
+      "fix": "write_agent_report",
+      "solution": "Add the needed permissions: block (e.g. contents: write) to the workflow.",
+      "status": "solved"
+    }
+  ]
+}

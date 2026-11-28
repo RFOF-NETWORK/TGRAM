@@ -1,0 +1,55 @@
+name: TGRAM Workflow Doctor (Agents)
+on:
+  workflow_run:
+    workflows: ["CI", "Scorecard", "CodeQL", "TGRAM Autonomous 24/7 CI/CD", "Selective Auto-Merge (AXF & SAI only)"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Failed run ID to diagnose"
+        required: true
+
+permissions:
+  contents: write
+  issues: write
+  actions: read
+
+jobs:
+  diagnose:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_branch || github.ref }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run Workflow Doctor
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FAILED_WORKFLOW: ${{ github.event.workflow_run.name || 'manual' }}
+        run: python tools/workflow_doctor.py --run-id "${{ github.event.workflow_run.id || inputs.run_id }}"
+
+      - name: Keep solutions (append-only commit)
+        run: |
+          git config user.name "TGRAM Workflow Doctor"
+          git config user.email "actions@github.com"
+          git add agent-reports/ requirements.txt || true
+          git commit -m "Doctor: diagnose ${{ github.event.workflow_run.name || 'manual' }} [skip ci]" || exit 0
+          git pull --rebase || true
+          git push || echo "Push not possible, report stays in issue"
+
+      - name: Open or update issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TITLE="Workflow Doctor: ${{ github.event.workflow_run.name || 'manual' }}"
+          NUM=$(gh issue list --state open --search "$TITLE in:title" --json number --jq '.[0].number')
+          if [ -n "$NUM" ]; then
+            gh issue comment "$NUM" --body-file agent-reports/latest.md
+          else
+            gh issue create --title "$TITLE" --body-file agent-reports/latest.md || true
+          fi
