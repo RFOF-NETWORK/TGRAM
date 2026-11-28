@@ -6,8 +6,11 @@
 const { Address, Cell, beginCell, internal, external, storeMessage, loadStateInit, SendMode, WalletContractV4, WalletContractV5R1 } = require("@ton/ton");
 
 const ALLOWED_ORIGINS = ["https://rfof-network.github.io", "https://tgram-tau.vercel.app"];
-const TONCENTER = "https://toncenter.com/api/v3";
-const TONAPI = "https://tonapi.io/v2";
+const NETS = {
+  mainnet: { label: "Mainnet-Simulation", toncenter: "https://toncenter.com/api/v3", tonapi: "https://tonapi.io/v2" },
+  testnet: { label: "Testnet-Lauf", toncenter: "https://testnet.toncenter.com/api/v3", tonapi: "https://testnet.tonapi.io/v2" },
+};
+const MODES = { mainnet: ["mainnet"], testnet: ["testnet"], both: ["mainnet", "testnet"] };
 const MAX_MESSAGES = 4;
 const GAS_RESERVE = 50_000_000n;
 const ZERO_SIGNATURE_KEY = Buffer.alloc(64);
@@ -16,7 +19,7 @@ const TONCENTER_KEY = process.env.TONCENTER_MAINNET_API_KEY;
 
 async function getJson(url, init = {}, attempt = 0) {
   const headers = { ...(init.headers || {}) };
-  if (TONCENTER_KEY && url.startsWith(TONCENTER)) headers["X-API-Key"] = TONCENTER_KEY;
+  if (TONCENTER_KEY && url.startsWith(NETS.mainnet.toncenter)) headers["X-API-Key"] = TONCENTER_KEY;
   const r = await fetch(url, { ...init, headers, signal: AbortSignal.timeout(10000) });
   // Toncenter allows 1 request/second without a key; wait and retry instead of blocking the user.
   if (r.status === 429 && attempt < 3) {
@@ -59,7 +62,8 @@ function sumFees(node) {
   return BigInt(node?.transaction?.total_fees || 0) + (node?.children || []).reduce((s, c) => s + sumFees(c), 0n);
 }
 
-async function preflight({ from, messages }) {
+async function runOn(netName, { from, messages }) {
+  const net = NETS[netName];
   const checks = [];
   const add = (name, ok, detail) => checks.push({ name, ok, detail });
 
@@ -75,8 +79,12 @@ async function preflight({ from, messages }) {
   catch (e) { add("Format", false, "Nachricht nicht lesbar: " + e.message); return { ok: false, checks }; }
 
   const raw = sender.toRawString();
-  const info = await getJson(`${TONCENTER}/walletInformation?address=${encodeURIComponent(raw)}&use_v2=false`);
-  if (info.status !== "active") { add("Wallet aktiv", false, "Wallet ist noch nicht aktiv. Erst eine kleine TON-Einzahlung empfangen."); return { ok: false, checks }; }
+  const info = await getJson(`${net.toncenter}/walletInformation?address=${encodeURIComponent(raw)}&use_v2=false`);
+  if (info.status !== "active") {
+    if (netName === "testnet") return { ok: false, skipped: true, checks: [{ name: "Wallet aktiv", ok: false, detail: "Wallet hat auf dem Testnet kein Guthaben. Testnet-TON gibt es kostenlos über @testgiver_ton_bot." }] };
+    add("Wallet aktiv", false, "Wallet ist noch nicht aktiv. Erst eine kleine TON-Einzahlung empfangen.");
+    return { ok: false, checks };
+  }
 
   const total = parsed.reduce((s, m) => s + m.info.value.coins, 0n);
   const balance = BigInt(info.balance || 0);
@@ -84,7 +92,7 @@ async function preflight({ from, messages }) {
   add("Guthaben", covered, `${(Number(balance) / 1e9).toFixed(4)} TON verfügbar, ${(Number(total + GAS_RESERVE) / 1e9).toFixed(4)} TON nötig (inkl. Gas-Reserve)`);
   if (!covered) return { ok: false, checks };
 
-  const { public_key } = await getJson(`${TONAPI}/accounts/${encodeURIComponent(raw)}/publickey`);
+  const { public_key } = await getJson(`${net.tonapi}/accounts/${encodeURIComponent(raw)}/publickey`);
   const wallet = walletFor(info.wallet_type, Buffer.from(public_key, "hex"), sender.workChain);
   if (!wallet || !wallet.address.equals(sender)) {
     add("Wallet-Typ", false, `${info.wallet_type || "unbekannt"} wird noch nicht simuliert`);
@@ -98,7 +106,7 @@ async function preflight({ from, messages }) {
     messages: parsed,
   });
   const boc = beginCell().store(storeMessage(external({ to: wallet.address, body: transfer }))).endCell().toBoc().toString("base64");
-  const sim = await getJson(`${TONAPI}/wallet/emulate?ignore_signature_check=true`, {
+  const sim = await getJson(`${net.tonapi}/wallet/emulate?ignore_signature_check=true`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ boc }),
@@ -110,7 +118,7 @@ async function preflight({ from, messages }) {
   const fee = sumFees(sim.trace);
   const simOk = actions.length > 0 && failedActions.length === 0 && failedTx.length === 0;
   add(
-    "Mainnet-Simulation",
+    net.label,
     simOk,
     simOk
       ? `${actions.length} Aktion(en) laufen fehlerfrei durch`
@@ -124,6 +132,21 @@ async function preflight({ from, messages }) {
     feeTon: Number(fee) / 1e9,
     risk: sim.risk ? { ton: Number(sim.risk.ton || 0) / 1e9, jettons: (sim.risk.jettons || []).map((j) => ({ symbol: j.jetton?.symbol, amount: j.quantity })) } : null,
   };
+}
+
+// The user picks the mode. "both" requires mainnet to pass; the testnet run blocks only when it
+// actually ran and failed, because most mainnet wallets hold no testnet balance.
+async function preflight(body) {
+  const mode = MODES[body.mode] ? body.mode : "both";
+  const runs = {};
+  for (const netName of MODES[mode]) {
+    try { runs[netName] = await runOn(netName, body); }
+    catch (e) { runs[netName] = { ok: false, unreachable: true, checks: [{ name: NETS[netName].label + " erreichbar", ok: false, detail: "Prüfung nicht möglich (" + e.message + ")" }] }; }
+  }
+  const t = runs.testnet;
+  const ok = mode === "both" ? runs.mainnet.ok && (!t || t.ok || t.skipped) : runs[mode].ok;
+  const primary = runs.mainnet || runs.testnet;
+  return { ok, mode, runs, checks: primary.checks, actions: primary.actions, feeTon: primary.feeTon, risk: primary.risk };
 }
 
 module.exports = async (req, res) => {
